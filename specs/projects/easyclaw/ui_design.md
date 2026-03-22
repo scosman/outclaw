@@ -23,6 +23,7 @@ Desktop application UI built with SvelteKit + shadcn-svelte. Single-window app w
 ```
 
 ### Header Bar
+
 - Fixed at top, always visible (except during wizard flow, which is full-screen)
 - **Left**: App logo — "EasyClaw" in styled monospace, small ASCII art flourish (e.g., a claw mark `>///<` or similar). Keep it compact, not a full splash graphic.
 - **Right**: Docker status pill (green dot + "Running" / red dot + "Not Running" / yellow dot + "Not Installed"), settings gear icon
@@ -30,11 +31,13 @@ Desktop application UI built with SvelteKit + shadcn-svelte. Single-window app w
 - Background: slightly lighter than content area (shadcn `card` background or similar)
 
 ### Content Area
+
 - Fills remaining window space
 - Scrollable when content overflows
 - Switches between views: Instance List, Instance Detail, Setup Wizard
 
 ### Window
+
 - Default size: 900×640px
 - Minimum size: 720×500px
 - Resizable. Content reflows within min/max but this is a desktop app — no mobile breakpoints needed.
@@ -45,6 +48,7 @@ Desktop application UI built with SvelteKit + shadcn-svelte. Single-window app w
 When Docker is not running or not installed, an overlay covers the content area (header remains visible). The overlay is not dismissible — it blocks interaction until Docker is available.
 
 ### Docker Not Installed
+
 ```
 ┌──────────────────────────────────────┐
 │                                      │
@@ -70,6 +74,7 @@ When Docker is not running or not installed, an overlay covers the content area 
 - Auto-advances when Docker is detected
 
 ### Docker Not Running
+
 ```
 ┌──────────────────────────────────────┐
 │                                      │
@@ -120,6 +125,7 @@ The default view when the app has at least one instance and Docker is running.
 ```
 
 **Instance cards:**
+
 - Full-width cards in a vertical stack
 - Left: status indicator dot (green=running, gray=stopped, red=error, blue=building, yellow=docker-not-running)
 - Instance name: prominent, left-aligned
@@ -134,6 +140,7 @@ The default view when the app has at least one instance and Docker is running.
 - Action buttons stop click propagation (don't navigate)
 
 **"+ New" button:**
+
 - Top right, prominent. shadcn `Button` variant `default`.
 - Launches the setup wizard.
 
@@ -183,6 +190,7 @@ Full-screen flow that replaces the content area. Header bar is hidden during the
 - **Step indicator**: simple text "Step N of M", not a progress bar or stepper dots — keeps it clean
 
 ### Step 1: Docker Check (auto-skipped if running)
+
 Same as the Docker Status Overlay (Section 2). If Docker is running, user never sees this — wizard starts at Step 2. If Docker is detected mid-step, auto-advance with a brief "Docker detected!" flash.
 
 ### Step 2: Install Type
@@ -265,6 +273,7 @@ Scrollable form. Sections with headers.
 ```
 
 **Form patterns:**
+
 - Labels above inputs (shadcn standard)
 - Short helper text below inputs where needed, muted color
 - Inline validation: red border + error text below field on invalid input
@@ -274,6 +283,7 @@ Scrollable form. Sections with headers.
 - **"Advanced Options"**: collapsible section (shadcn `Collapsible`). Chevron rotates on expand. Collapsed by default.
 
 **Advanced section (expanded):**
+
 ```
 │  ▾ Advanced Options                              │
 │  ┌───────────────────────────────────────────┐   │
@@ -350,6 +360,7 @@ Scrollable form. Sections with headers.
 - ASCII art logo above the stage list adds personality to what could be a boring wait screen
 
 **Error state:**
+
 ```
 │                  >///<                            │
 │             Build Failed                         │
@@ -504,30 +515,36 @@ Navigated to from the instance list. Replaces the content area (header bar remai
 ```
 
 **Navigation:**
+
 - "← Instances" breadcrumb/back link at top left — returns to instance list
 - No sidebar; this is a simple drill-down
 
 **Instance header:**
+
 - Name: large, prominent. Clicking it makes it editable (inline edit with save/cancel on blur/enter/escape).
 - Status badge: right-aligned, same color coding as instance list
 - Version: below the name, muted
 
 **Action buttons:**
+
 - Primary row: "Open Gateway" (opens browser), "Stop"/"Start" (contextual), "Restart"
 - Use shadcn button variants: "Open Gateway" = `default`, "Stop" = `outline`, "Restart" = `outline`
 - When stopped: "Start" replaces "Stop", "Restart" is hidden
 
 **Details section:**
+
 - Key-value layout: label left (muted), value right, copy button on applicable fields
 - Gateway Token: masked with dots by default. Eye icon toggles visibility. Copy button copies actual value regardless of mask state.
 - Monospace values (URLs, paths, IDs) stand out naturally since the whole app is monospace
 
 **Actions section:**
+
 - "Edit Settings": opens the configuration form (same layout as wizard Step 3, pre-filled). This could be a modal/dialog or a new view. Recommend: full content area replacement (same as wizard step) with a "← Back to Instance" breadcrumb.
 - "Rebuild": confirms ("This will rebuild the Docker image and restart the container. Continue?") then shows the build screen (same as wizard Step 4)
 - "Provider Setup" / "Channel Setup": same as wizard Steps 5/6
 
 **Danger Zone:**
+
 - Visually separated section at the bottom
 - Red-tinted or bordered (shadcn `destructive` variant)
 - "Delete Instance" button: `destructive` variant
@@ -538,6 +555,7 @@ Navigated to from the instance list. Replaces the content area (header bar remai
 Minimal app-level settings. Opens as a modal dialog from the gear icon in the header.
 
 Contents (V1):
+
 - **Data Directory**: shows `~/.easyclaw/` path (read-only, informational)
 - **About**: EasyClaw version, link to GitHub repo
 
@@ -547,19 +565,19 @@ This is intentionally minimal. Per-instance settings live on the instance detail
 
 Reusable shadcn-svelte components used across the app:
 
-| Component | shadcn Component | Usage |
-|-----------|-----------------|-------|
-| Status Dot | Custom (colored `<span>`) | Instance list cards, detail header |
-| Instance Card | `Card` | Instance list items |
-| Code Block | Custom (`<pre>` with copy button) | CLI commands in wizard |
-| Copy Button | `Button` variant `ghost` + clipboard icon | Detail fields, code blocks |
-| Form Field | `Label` + `Input`/`Select`/`Switch` | Wizard configuration, edit settings |
-| Confirm Dialog | `AlertDialog` | Delete instance, cancel build, rebuild |
-| Collapsible Section | `Collapsible` | Advanced options in config form |
-| Searchable Dropdown | `Combobox` (command + popover) | Timezone selector, version selector |
-| Step Indicator | Custom text | Wizard header "Step N of M" |
-| Section Header | Custom (label + horizontal rule) | Instance detail, wizard config form |
-| Docker Status Pill | `Badge` variant | Header bar |
+| Component           | shadcn Component                          | Usage                                  |
+| ------------------- | ----------------------------------------- | -------------------------------------- |
+| Status Dot          | Custom (colored `<span>`)                 | Instance list cards, detail header     |
+| Instance Card       | `Card`                                    | Instance list items                    |
+| Code Block          | Custom (`<pre>` with copy button)         | CLI commands in wizard                 |
+| Copy Button         | `Button` variant `ghost` + clipboard icon | Detail fields, code blocks             |
+| Form Field          | `Label` + `Input`/`Select`/`Switch`       | Wizard configuration, edit settings    |
+| Confirm Dialog      | `AlertDialog`                             | Delete instance, cancel build, rebuild |
+| Collapsible Section | `Collapsible`                             | Advanced options in config form        |
+| Searchable Dropdown | `Combobox` (command + popover)            | Timezone selector, version selector    |
+| Step Indicator      | Custom text                               | Wizard header "Step N of M"            |
+| Section Header      | Custom (label + horizontal rule)          | Instance detail, wizard config form    |
+| Docker Status Pill  | `Badge` variant                           | Header bar                             |
 
 ## 8. Navigation Map
 
@@ -592,6 +610,7 @@ All navigation is stack-based (push/pop). No deep nesting. Maximum depth is 2 (L
 ## 9. Visual Design Notes
 
 ### Typography
+
 - **Primary font**: JetBrains Mono (fallback: Fira Code, Cascadia Code, monospace)
 - All text in monospace — headers, body, labels, buttons, everything
 - Size scale follows shadcn defaults but in monospace:
@@ -602,7 +621,9 @@ All navigation is stack-based (push/pop). No deep nesting. Maximum depth is 2 (L
   - Code blocks: 13px (slightly smaller for density)
 
 ### Color Palette
+
 Follow shadcn dark theme defaults:
+
 - Background: `hsl(240 10% 3.9%)` (near-black)
 - Card/elevated: `hsl(240 10% 6%)` (slightly lighter)
 - Primary: shadcn default blue/white
@@ -616,12 +637,14 @@ Follow shadcn dark theme defaults:
 - Danger zone: red-tinted border or background
 
 ### ASCII Art / Branding
+
 - Logo mark: small claw-inspired ASCII art (explore options like `>///<`, `{🦀}`, or a custom design during implementation)
 - Used in: header bar (compact), empty state (larger), build/complete screens (medium)
 - Keep it subtle — 2-3 lines max, not a full-screen splash
 - The logo is a creative element to be finalized during implementation, not a blocker
 
 ### Spacing & Layout
+
 - Content padding: 24px on sides, 16px top
 - Card padding: 16px
 - Gap between cards: 12px

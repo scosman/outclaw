@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+
+/* JetBrains Mono font - loaded locally */
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/JetBrainsMono/fonts/webfonts/JetBrainsMono-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/JetBrainsMono/fonts/webfonts/JetBrainsMono-Medium.woff2') format('woff2');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/JetBrainsMono/fonts/webfonts/JetBrainsMono-SemiBold.woff2') format('woff2');
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/JetBrainsMono/fonts/webfonts/JetBrainsMono-Bold.woff2') format('woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@theme {
+	--font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+/* Dark theme base styles - dark is the default and only theme in V1 */
+:root {
+	color-scheme: dark;
+}

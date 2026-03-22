@@ -8,7 +8,7 @@ status: complete
 
 ## Phases
 
-- [ ] Phase 1: Project scaffolding, theming, and CI
+- [x] Phase 1: Project scaffolding, theming, and CI
 - [ ] Phase 2: Rust backend core (data model, instance manager, Docker CLI, GitHub client)
 - [ ] Phase 3: Docker detection + instance list UI
 - [ ] Phase 4: Setup wizard — install type + configuration form
@@ -26,6 +26,7 @@ status: complete
 Set up the project from scratch with all tooling configured.
 
 **Delivers:**
+
 - Tauri v2 project initialized with SvelteKit frontend
 - `@sveltejs/adapter-static` configured, SSR disabled
 - shadcn-svelte installed with dark theme as default
@@ -46,6 +47,7 @@ Set up the project from scratch with all tooling configured.
 All Rust backend modules, data models, and Tauri command stubs. No frontend integration yet — this phase is backend-only.
 
 **Delivers:**
+
 - Data models: `InstanceConfig`, `InstanceSettings`, `InstanceStatus`, `DockerStatus`, `Release`, `AppState`, `EasyClawError`
 - Instance manager: CRUD operations, directory structure creation/deletion
 - Name generator: curated adjective + animal word lists, collision handling
@@ -69,6 +71,7 @@ All Rust backend modules, data models, and Tauri command stubs. No frontend inte
 First frontend screens connected to the backend. The app becomes interactive.
 
 **Delivers:**
+
 - Frontend TypeScript types matching Rust models (`src/lib/types/instance.ts`)
 - Docker status store: calls `check_docker` on load, subscribes to `docker-status-changed` events
 - `DockerStatusPill.svelte` component in header bar (green/red/yellow dot + text)
@@ -89,6 +92,7 @@ First frontend screens connected to the backend. The app becomes interactive.
 The wizard UI up through the configuration step. Does not build yet.
 
 **Delivers:**
+
 - Wizard route (`/wizard`) with wizard store managing step progression
 - Wizard layout: custom header (back, title, step counter), footer (cancel, next), full-screen (hides main header)
 - Step 1: Docker check — auto-skips if Docker running, otherwise shows overlay with polling
@@ -115,6 +119,7 @@ The wizard UI up through the configuration step. Does not build yet.
 The core build system. After this phase, you can create a fully running OpenClaw instance.
 
 **Delivers:**
+
 - `build_instance` Tauri command: full 9-stage pipeline
   - Stage 1: Fetch Dockerfile from GitHub
   - Stage 2: Generate compose + env files
@@ -139,6 +144,7 @@ The core build system. After this phase, you can create a fully running OpenClaw
 Remaining wizard steps. After this, the full setup wizard works end-to-end.
 
 **Delivers:**
+
 - `CodeBlock.svelte`: styled `<pre>` with copy-to-clipboard button
 - `CopyButton.svelte`: clipboard icon button, copies text, brief "Copied!" feedback
 - Wizard Step 5: Provider setup — CLI instructions with formatted command, Copy button, Skip/Done buttons
@@ -156,6 +162,7 @@ Remaining wizard steps. After this, the full setup wizard works end-to-end.
 Real-time status updates and instance control from the list view.
 
 **Delivers:**
+
 - Status poller: background tokio task, polls Docker every 5s (foreground) / 30s (background)
 - `docker-status-changed` events emitted on Docker state changes
 - `instance-status-changed` events emitted on container state changes
@@ -177,6 +184,7 @@ Real-time status updates and instance control from the list view.
 Full detail view for a single instance.
 
 **Delivers:**
+
 - Instance detail route (`/instances/[id]`)
 - "← Instances" back navigation
 - Instance header: name (large, clickable for inline edit), status badge, version
@@ -201,6 +209,7 @@ Full detail view for a single instance.
 Full instance lifecycle management from the detail screen.
 
 **Delivers:**
+
 - Edit settings route (`/instances/[id]/edit`): `ConfigForm.svelte` in edit mode, pre-filled with current instance settings
 - `update_instance` command: updates instance.json, regenerates Docker files
 - Save from edit triggers rebuild confirmation → build screen → return to instance detail
@@ -220,6 +229,7 @@ Full instance lifecycle management from the detail screen.
 Final polish pass, app-level settings, and release infrastructure.
 
 **Delivers:**
+
 - Settings modal (gear icon in header): data directory path, app version, GitHub repo link
 - `app-state.json` persistence: save/restore window position and size
 - ASCII art logo finalized: compact version for header, medium for build/complete screens, large for empty state

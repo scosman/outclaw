@@ -3,6 +3,7 @@
 ## Automated Code Checks
 
 Run all automated checks with:
+
 - `npm run check` (svelte-check + TypeScript)
 - `npm run lint` (ESLint)
 - `npm run format:check` (Prettier)

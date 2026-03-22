@@ -12,7 +12,7 @@ They publish a setup script that walks users through `specs/references/setup.sh`
 
 - Download a app (MacOS, windows)
 - Launch it
-- Walk through a wizard for initial setup: 
+- Walk through a wizard for initial setup:
   - ask them to install docker desktop, wait until it’s running (check socket)
   - ask them for config options. “Standard Install” vs “Custom Install (Advanced)”
   - Custom Install: UI with options mapping to the docker setup script, explaining each. User friendly. Good defaults.
@@ -31,17 +31,17 @@ They publish a setup script that walks users through `specs/references/setup.sh`
 
 ### Tech Stack
 
-- App framework: Tauri. 
+- App framework: Tauri.
 - Language: typescript with type checking. No untyped JS.
 - Web frameworks: SvelteKit, shadcn-svelte
 - Docker Desktop: required, user must install separately and have running. Detect if running
-- Hosting: Github for repo, Github actions for CI, Github actions for release builds, Github releases for release hosting. 
+- Hosting: Github for repo, Github actions for CI, Github actions for release builds, Github releases for release hosting.
 - CI: usual excellent stack for tauri dev: (you decide, this is rough): svelte-check, eslint, type checking, etc.
 - Releases: Github action triggered by release creation. Builds and attaches tauri app builds for Mac (intel and arm), Windows, and linux.
 
 ### Principals:
 
-- User friendly: 
+- User friendly:
   - Anyone can run it and successfully install openclaw
 - Don’t ask technical questions to non technical users.
   - Example: don’t ask them to generate gateway key, use a secure random.
@@ -49,17 +49,17 @@ They publish a setup script that walks users through `specs/references/setup.sh`
 - Secure by default
   - The gateway running in docker, and is secure by default (no host system access). Enabling host system access has warnings.
 - Minimize coupling
-  - OpenClaw changes often. Really often. If we couple too deeply to it, we’ll be breaking non-stop. 
+  - OpenClaw changes often. Really often. If we couple too deeply to it, we’ll be breaking non-stop.
   - I’m okay automating/replacing the setup script for docker, but preferably that’s all.
 - Isolation and Robustness:
   - have the concept of “instances”. I might want to install 3 open claws locally, each with their own config dir, own docker container, and own workspace. I can upgrade/manage them separately. Future: I can “fork” an instance.
-  - Instances have versions. Anytime you edit the config, or re-build the docker image, you  get a new version. We save these older versions (openclaw config directory, Dockerfile), and can restore/roll back any time.
+  - Instances have versions. Anytime you edit the config, or re-build the docker image, you get a new version. We save these older versions (openclaw config directory, Dockerfile), and can restore/roll back any time.
   - The workspace directory (its data DIR) is not versioned/saved. One workspace per instance.
 
 ### Settings
 
 - Config directory: we manage completely
-  - `~/.easyclaw` is our root directory, all of our app data is saved here (including openclaw data like config and workspace). 
+  - `~/.easyclaw` is our root directory, all of our app data is saved here (including openclaw data like config and workspace).
   - Don’t mount this root ever, use sub-folders. We want to be able to save non-mounted data (config backups, docker images, etc). See instances/versions above.
 
 ### Resolved: Provider & Chat Setup Approach
@@ -68,16 +68,16 @@ They publish a setup script that walks users through `specs/references/setup.sh`
   - Option 1:
     - Is there a good way to wrap this TUI in tauri (docker exec the config, web-terminal)?
     - If we wrap their TUI, can we deep link to the right thing (connect WhatsApp, connect provider) without showing all the config UI.
-  - Option 2:
-    - Is the config for these simple enough to just write our own webUI + script to manage? I’m worried about providers (about 20 options, changing often). But maybe it’s all “OpenAI compatible API” and we can just have AI coding agents update occasionally? I imagine they maintain backwards compatibility because people have existing configs so maybe my compatibility concerns aren’t too bad if all these do is modify the config file.
-**Resolved:** Early V1 shows CLI instructions. Later V1 phase builds native UI (simple forms writing to OpenClaw config files). Detailed design deferred to implementation phase.
+  - Option 2: - Is the config for these simple enough to just write our own webUI + script to manage? I’m worried about providers (about 20 options, changing often). But maybe it’s all “OpenAI compatible API” and we can just have AI coding agents update occasionally? I imagine they maintain backwards compatibility because people have existing configs so maybe my compatibility concerns aren’t too bad if all these do is modify the config file.
+    **Resolved:** Early V1 shows CLI instructions. Later V1 phase builds native UI (simple forms writing to OpenClaw config files). Detailed design deferred to implementation phase.
 
 ### Docker Setup Config Summary
 
 Here’s an agent’s summary of the config options. Part of the functional spec should be a list of each build option
-1) do we support setting it or only allow a fixed value/default
-2) which values do we support
-3) What’s it’s UI: title, description and extended tooltip text.
+
+1. do we support setting it or only allow a fixed value/default
+2. which values do we support
+3. What’s it’s UI: title, description and extended tooltip text.
 
 ```
 Docker Image
@@ -108,7 +108,7 @@ Misc
 
 ```
 
-Install browser into docker: is this an option? It should be. 
+Install browser into docker: is this an option? It should be.
 
 ### Non Docker Config
 

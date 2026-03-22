@@ -78,6 +78,7 @@ easyclaw/
 ```
 
 ### SvelteKit Configuration
+
 - Adapter: `@sveltejs/adapter-static` — builds to static SPA for Tauri
 - SSR disabled (`ssr: false` in all layouts)
 - Client-side routing only, all navigation happens in the Tauri webview
@@ -88,23 +89,23 @@ easyclaw/
 
 ```typescript
 interface InstanceConfig {
-  id: string;                    // "ec_a1b2c3" — generated, filesystem-safe
-  name: string;                  // "Cosmic Otter" — user-facing
-  openclawVersion: string;       // GitHub release tag, e.g., "v0.42.1"
-  containerId: string;           // references a container in ~/.easyclaw/docker-containers/<containerId>/
-  gatewayPort: number;
-  bridgePort: number;
-  gatewayBind: "loopback" | "lan";
-  gatewayToken: string;          // 32-byte hex, auto-generated
-  timezone: string;              // IANA, e.g., "America/Toronto"
-  installBrowser: boolean;
-  aptPackages: string;           // space-separated
-  extensions: string;            // space-separated
-  homeVolume: string;            // empty = default
-  extraMounts: string;           // comma-separated source:target[:opts]
-  allowInsecureWs: boolean;
-  createdAt: string;             // ISO 8601
-  updatedAt: string;             // ISO 8601
+	id: string; // "ec_a1b2c3" — generated, filesystem-safe
+	name: string; // "Cosmic Otter" — user-facing
+	openclawVersion: string; // GitHub release tag, e.g., "v0.42.1"
+	containerId: string; // references a container in ~/.easyclaw/docker-containers/<containerId>/
+	gatewayPort: number;
+	bridgePort: number;
+	gatewayBind: 'loopback' | 'lan';
+	gatewayToken: string; // 32-byte hex, auto-generated
+	timezone: string; // IANA, e.g., "America/Toronto"
+	installBrowser: boolean;
+	aptPackages: string; // space-separated
+	extensions: string; // space-separated
+	homeVolume: string; // empty = default
+	extraMounts: string; // comma-separated source:target[:opts]
+	allowInsecureWs: boolean;
+	createdAt: string; // ISO 8601
+	updatedAt: string; // ISO 8601
 }
 ```
 
@@ -114,22 +115,22 @@ Serialized as JSON to `~/.easyclaw/instances/<id>/instance.json`. The Rust backe
 
 ```typescript
 interface InstanceStatus {
-  state: "building" | "running" | "stopped" | "error" | "docker-not-running";
-  containerId?: string;
-  errorMessage?: string;
+	state: 'building' | 'running' | 'stopped' | 'error' | 'docker-not-running';
+	containerId?: string;
+	errorMessage?: string;
 }
 
 interface DockerStatus {
-  state: "running" | "not-running" | "not-installed";
-  composeAvailable: boolean;
+	state: 'running' | 'not-running' | 'not-installed';
+	composeAvailable: boolean;
 }
 
 interface Release {
-  tag: string;              // "v0.42.1"
-  name: string;             // release title
-  publishedAt: string;      // ISO 8601
-  prerelease: boolean;
-  commitSha: string;        // for fetching Dockerfile at this version
+	tag: string; // "v0.42.1"
+	name: string; // release title
+	publishedAt: string; // ISO 8601
+	prerelease: boolean;
+	commitSha: string; // for fetching Dockerfile at this version
 }
 ```
 
@@ -137,9 +138,9 @@ interface Release {
 
 ```typescript
 interface AppState {
-  windowPosition?: { x: number; y: number };
-  windowSize?: { width: number; height: number };
-  lastActiveInstance?: string;  // instance ID
+	windowPosition?: { x: number; y: number };
+	windowSize?: { width: number; height: number };
+	lastActiveInstance?: string; // instance ID
 }
 ```
 
@@ -152,12 +153,14 @@ Stored at `~/.easyclaw/app-state.json`. Read on launch, written on window close/
 All commands are `async` and return `Result<T, String>` on the Rust side. The frontend calls them via `@tauri-apps/api/core`.
 
 **Docker:**
+
 ```rust
 #[tauri::command]
 async fn check_docker() -> Result<DockerStatus, String>
 ```
 
 **Instances:**
+
 ```rust
 #[tauri::command]
 async fn list_instances() -> Result<Vec<InstanceWithStatus>, String>
@@ -182,6 +185,7 @@ async fn rename_instance(id: String, name: String) -> Result<(), String>
 ```
 
 **Lifecycle:**
+
 ```rust
 #[tauri::command]
 async fn build_instance(id: String, app_handle: tauri::AppHandle) -> Result<(), String>
@@ -201,6 +205,7 @@ async fn restart_instance(id: String) -> Result<(), String>
 ```
 
 **Releases:**
+
 ```rust
 #[tauri::command]
 async fn get_releases() -> Result<Vec<Release>, String>
@@ -208,6 +213,7 @@ async fn get_releases() -> Result<Vec<Release>, String>
 ```
 
 **System:**
+
 ```rust
 #[tauri::command]
 async fn get_system_timezone() -> Result<String, String>
@@ -236,6 +242,7 @@ The poller emits `docker-status-changed` and `instance-status-changed`. The `bui
 ### 4.1 Docker CLI Wrapper (`docker/cli.rs`)
 
 All Docker interaction goes through CLI commands — no Docker API libraries. Rationale:
+
 - `docker compose` has complex behavior that's hard to replicate via API
 - CLI output matches what users would see in a terminal (helpful for debugging)
 - Fewer Rust dependencies, simpler cross-platform (Docker CLI handles platform differences)
@@ -259,6 +266,7 @@ impl DockerCli {
 ```
 
 **Key details:**
+
 - Commands run via `tokio::process::Command` for async execution
 - Build output streamed line-by-line via a channel, forwarded as Tauri events
 - Container listing uses `docker ps --filter label=easyclaw.container --format json` — we label all containers with both container and instance IDs
@@ -273,6 +281,7 @@ pub fn prepare_build_context(instance: &InstanceConfig, dockerfile_content: &str
 ```
 
 **Fetch strategy:**
+
 1. Download `Dockerfile` from GitHub raw content at the release tag: `https://raw.githubusercontent.com/openclaw/openclaw/{tag}/Dockerfile`
 2. Cache downloaded Dockerfiles in `~/.easyclaw/docker-containers/<containerId>/`
 3. If fetch fails, check cache — a cached Dockerfile from a previous build of the same version is reusable
@@ -294,11 +303,12 @@ Generates `docker-compose.yml` as a YAML string. Uses the `serde_yaml` crate (no
 **Labels:** Every container gets `easyclaw.container={containerId}` and `easyclaw.instance={instanceId}` labels for identification by the poller.
 
 **Port mapping:**
+
 ```yaml
 ports:
-  - "127.0.0.1:{gatewayPort}:18789"   # loopback
+  - '127.0.0.1:{gatewayPort}:18789' # loopback
   # or
-  - "{gatewayPort}:18789"              # lan
+  - '{gatewayPort}:18789' # lan
 ```
 
 Bind address depends on `gatewayBind` setting.
@@ -329,6 +339,7 @@ impl InstanceManager {
 ```
 
 **create() flow:**
+
 1. Generate instance ID (`ec_` + 6 random alphanumeric chars)
 2. Generate container ID (`ct_` + 6 random alphanumeric chars)
 3. Generate name if not provided (via `names::generate()`)
@@ -348,6 +359,7 @@ impl InstanceManager {
 8. Generate and write Dockerfile, docker-compose.yml, .env to `docker-containers/<containerId>/`
 
 **delete() flow:**
+
 1. Stop container if running (`docker compose stop`)
 2. Remove containers (`docker compose down`)
 3. Remove Docker image (`docker rmi easyclaw-<containerId>:latest`)
@@ -361,6 +373,7 @@ pub fn generate(existing_names: &[String]) -> String
 ```
 
 Two curated word lists embedded in the binary:
+
 - ~100 adjectives: "cosmic", "swift", "midnight", "golden", "electric", "crimson", "phantom", "stellar", "neon", "arctic", ...
 - ~100 animals: "otter", "falcon", "raven", "buffalo", "panther", "mantis", "condor", "viper", "lynx", "osprey", ...
 
@@ -391,11 +404,13 @@ impl Poller {
 ```
 
 Runs as a `tokio::spawn` background task. On each tick:
+
 1. `docker_cli.check_available()` → emit `docker-status-changed` if state changed
 2. If Docker running: `docker_cli.list_containers("easyclaw.container")` → match containers to instances via `containerId` → emit `instance-status-changed` for any changes
 3. Sleep for interval
 
 **Intervals:**
+
 - Default: 5 seconds
 - When Tauri window loses focus: 30 seconds (listen to Tauri `window-focus-changed` event)
 - During build: poller skips the building instance (build command handles its own status)
@@ -426,47 +441,53 @@ impl ReleasesClient {
 ### 5.1 Stores
 
 **`instances.ts`** — Central instance store:
+
 ```typescript
 interface InstanceStore {
-  instances: Map<string, InstanceConfig & { status: InstanceStatus }>;
-  loading: boolean;
+	instances: Map<string, InstanceConfig & { status: InstanceStatus }>;
+	loading: boolean;
 }
 ```
+
 - Initialized on app load via `list_instances()` command
 - Updated reactively from `instance-status-changed` events
 - Individual mutations (create, delete, rename) update the store optimistically then confirm via backend response
 
 **`docker.ts`** — Docker status:
+
 ```typescript
 interface DockerStore {
-  status: DockerStatus;
+	status: DockerStatus;
 }
 ```
+
 - Initialized on app load via `check_docker()` command
 - Updated from `docker-status-changed` events
 - Used by layout to show/hide Docker overlay
 
 **`wizard.ts`** — Wizard step state:
+
 ```typescript
 interface WizardStore {
-  currentStep: number;
-  installType: "standard" | "custom";
-  settings: Partial<InstanceSettings>;
-  buildState: { stage: string; logs: string[]; done: boolean; error?: string } | null;
-  createdInstanceId: string | null;
+	currentStep: number;
+	installType: 'standard' | 'custom';
+	settings: Partial<InstanceSettings>;
+	buildState: { stage: string; logs: string[]; done: boolean; error?: string } | null;
+	createdInstanceId: string | null;
 }
 ```
+
 - Local to the wizard route, reset on wizard entry
 - `buildState` updated from `build-progress` events
 
 ### 5.2 Routing
 
-| Route | View | Notes |
-|-------|------|-------|
-| `/` | Instance list | Main screen, empty state if no instances |
-| `/instances/[id]` | Instance detail | Back button returns to `/` |
-| `/instances/[id]/edit` | Edit settings form | Reuses `ConfigForm.svelte` |
-| `/wizard` | Setup wizard | All steps within a single route, managed by `wizard.ts` store |
+| Route                  | View               | Notes                                                         |
+| ---------------------- | ------------------ | ------------------------------------------------------------- |
+| `/`                    | Instance list      | Main screen, empty state if no instances                      |
+| `/instances/[id]`      | Instance detail    | Back button returns to `/`                                    |
+| `/instances/[id]/edit` | Edit settings form | Reuses `ConfigForm.svelte`                                    |
+| `/wizard`              | Setup wizard       | All steps within a single route, managed by `wizard.ts` store |
 
 The wizard is a single SvelteKit route that renders different step components based on the store's `currentStep`. This avoids URL-per-step complexity and makes the linear flow easy to manage.
 
@@ -527,6 +548,7 @@ If any stage fails, emit error via `build-progress` event with the stage name an
 **V1: agent-in-gateway mode only (no sandbox).**
 
 The OpenClaw agent runs within the gateway container process. The container itself provides isolation:
+
 - No access to the host filesystem
 - No Docker socket mounted
 - No host network access (only the gateway/bridge ports are mapped)
@@ -589,6 +611,7 @@ Tauri commands convert `EasyClawError` to serializable error strings for the fro
 ### Logging
 
 Use `tracing` crate on the Rust side. Log to:
+
 - stderr (visible in dev)
 - `~/.easyclaw/logs/easyclaw.log` (rotating, for debugging production issues)
 
@@ -599,6 +622,7 @@ Log levels: `error` for failures, `warn` for recoverable issues, `info` for life
 ### Rust Backend
 
 **Unit tests** for pure logic:
+
 - `names.rs`: generates valid names, handles collisions
 - `ports.rs`: allocation logic, validation
 - `compose_gen.rs`: generated YAML matches expected structure
@@ -606,6 +630,7 @@ Log levels: `error` for failures, `warn` for recoverable issues, `info` for life
 - `models.rs`: serialization/deserialization roundtrips
 
 **Integration tests** (require Docker):
+
 - `docker/cli.rs`: check_available, build, compose up/down
 - Full build flow: create instance → build → verify container running → stop → delete
 
@@ -614,11 +639,13 @@ Integration tests are gated behind a `#[cfg(feature = "integration-tests")]` fla
 ### Frontend
 
 **Component tests** (vitest + @testing-library/svelte):
+
 - `ConfigForm.svelte`: renders all fields, validates input, emits correct settings
 - `InstanceCard.svelte`: renders different states correctly
 - `BuildProgress.svelte`: updates stages from events
 
 **E2E tests** (Playwright or similar, stretch goal for V1):
+
 - Full wizard flow with mocked Tauri commands
 - Instance list interactions
 
@@ -644,35 +671,35 @@ npm run format:check  # Prettier
 
 ### Rust (Cargo.toml)
 
-| Crate | Purpose |
-|-------|---------|
-| `tauri` (v2) | App framework, IPC, window management |
-| `tokio` | Async runtime (Tauri's default) |
-| `serde` + `serde_json` | Serialization for instance configs, IPC |
-| `serde_yaml` | docker-compose.yml generation |
-| `reqwest` | HTTP client for GitHub API, Dockerfile fetch |
-| `rand` | Instance ID + name generation, token generation |
-| `thiserror` | Error type derivation |
-| `tracing` + `tracing-subscriber` | Structured logging |
-| `dirs` | Cross-platform home directory resolution |
+| Crate                            | Purpose                                         |
+| -------------------------------- | ----------------------------------------------- |
+| `tauri` (v2)                     | App framework, IPC, window management           |
+| `tokio`                          | Async runtime (Tauri's default)                 |
+| `serde` + `serde_json`           | Serialization for instance configs, IPC         |
+| `serde_yaml`                     | docker-compose.yml generation                   |
+| `reqwest`                        | HTTP client for GitHub API, Dockerfile fetch    |
+| `rand`                           | Instance ID + name generation, token generation |
+| `thiserror`                      | Error type derivation                           |
+| `tracing` + `tracing-subscriber` | Structured logging                              |
+| `dirs`                           | Cross-platform home directory resolution        |
 
 ### Frontend (package.json)
 
-| Package | Purpose |
-|---------|---------|
-| `@sveltejs/kit` | App framework |
-| `@sveltejs/adapter-static` | Static SPA build for Tauri |
-| `svelte` | UI framework |
-| `@tauri-apps/api` | Tauri IPC from frontend |
-| `@tauri-apps/plugin-shell` | Open URLs in browser |
-| `shadcn-svelte` | UI component library |
-| `tailwindcss` | Utility CSS (shadcn dependency) |
-| `bits-ui` | Headless UI primitives (shadcn dependency) |
-| `typescript` | Type checking |
-| `vitest` | Unit/component testing |
-| `@testing-library/svelte` | Component test utilities |
-| `eslint` + `eslint-plugin-svelte` | Linting |
-| `prettier` + `prettier-plugin-svelte` | Formatting |
+| Package                               | Purpose                                    |
+| ------------------------------------- | ------------------------------------------ |
+| `@sveltejs/kit`                       | App framework                              |
+| `@sveltejs/adapter-static`            | Static SPA build for Tauri                 |
+| `svelte`                              | UI framework                               |
+| `@tauri-apps/api`                     | Tauri IPC from frontend                    |
+| `@tauri-apps/plugin-shell`            | Open URLs in browser                       |
+| `shadcn-svelte`                       | UI component library                       |
+| `tailwindcss`                         | Utility CSS (shadcn dependency)            |
+| `bits-ui`                             | Headless UI primitives (shadcn dependency) |
+| `typescript`                          | Type checking                              |
+| `vitest`                              | Unit/component testing                     |
+| `@testing-library/svelte`             | Component test utilities                   |
+| `eslint` + `eslint-plugin-svelte`     | Linting                                    |
+| `prettier` + `prettier-plugin-svelte` | Formatting                                 |
 
 ## 11. CI / CD
 
@@ -684,10 +711,10 @@ Triggered on push and PR:
 jobs:
   check:
     - npm ci
-    - npm run check          # svelte-check + tsc
+    - npm run check # svelte-check + tsc
     - npm run lint
     - npm run format:check
-    - npm run test           # vitest
+    - npm run test # vitest
   rust:
     - cargo fmt -- --check
     - cargo clippy --all-targets -- -D warnings
@@ -704,9 +731,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest      # Apple Silicon
+          - os: macos-latest # Apple Silicon
             target: aarch64-apple-darwin
-          - os: macos-13          # Intel
+          - os: macos-13 # Intel
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
