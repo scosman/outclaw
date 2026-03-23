@@ -536,12 +536,21 @@
 										isConnecting = true;
 										connectionError = null;
 
+										// 30 second timeout for provider connection
+										const timeoutMs = 30000;
+										const timeoutPromise = new Promise<never>((_, reject) =>
+											setTimeout(() => reject(new Error('Connection timed out. Please try again.')), timeoutMs)
+										);
+
 										try {
-											await invoke('connect_provider', {
-												instanceId: wizardStore.createdInstanceId,
-												authChoice: selectedProviderId,
-												fields: providerFieldValues
-											});
+											await Promise.race([
+												invoke('connect_provider', {
+													instanceId: wizardStore.createdInstanceId,
+													authChoice: selectedProviderId,
+													fields: providerFieldValues
+												}),
+												timeoutPromise
+											]);
 											connectionSuccess = true;
 										} catch (e) {
 											connectionError = `${e}`;
