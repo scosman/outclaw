@@ -903,7 +903,9 @@ pub async fn connect_provider(
         .docker_exec(&container_name, &test_args)
         .await
         .map_err(|_| {
-            let err_msg = "Provider connection test failed: ensure your API key is valid and try again.".to_string();
+            let err_msg =
+                "Provider connection test failed: ensure your API key is valid and try again."
+                    .to_string();
             warn!("{}", err_msg);
             err_msg
         })?;
@@ -914,4 +916,117 @@ pub async fn connect_provider(
     );
 
     Ok(())
+}
+
+/// Connect WhatsApp channel to an instance
+/// Installs the channel and runs login with streaming QR code output
+#[tauri::command]
+pub async fn connect_whatsapp(
+    instance_id: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("Connecting WhatsApp for instance {}", instance_id);
+
+    // Get the instance config to find the container ID
+    let config = state
+        .instance_manager
+        .get(&instance_id)
+        .map_err(|e| e.to_string())?;
+
+    // Build the container name: outclaw-{containerId}-gateway
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+
+    // Helper to emit progress
+    let emit_progress = |log: &str, done: bool, error: Option<&str>| {
+        if let Err(e) = app_handle.emit(
+            "whatsapp-progress",
+            serde_json::json!({
+                "id": instance_id,
+                "log": log,
+                "done": done,
+                "error": error
+            }),
+        ) {
+            warn!("Failed to emit whatsapp progress: {}", e);
+        }
+    };
+
+    // Create channel for streaming output
+    let (tx, mut rx) = mpsc::channel::<String>(100);
+    let container_name_clone = container_name.clone();
+
+    // Run channel add first (installs WhatsApp)
+    emit_progress("Installing WhatsApp channel...", false, None);
+
+    let add_result = state
+        .docker_cli
+        .docker_exec(
+            &container_name,
+            &["openclaw", "channels", "add", "--channel", "whatsapp"],
+        )
+        .await;
+
+    match add_result {
+        Ok(output) => {
+            // Channel add succeeded (or was already installed)
+            if output.contains("already installed") || output.contains("already exists") {
+                emit_progress("WhatsApp channel already installed", false, None);
+            } else {
+                emit_progress("WhatsApp channel installed, waiting for restart...", false, None);
+            }
+        }
+        Err(e) => {
+            // Non-fatal - channel might already be installed
+            warn!("Channel add warning (non-fatal): {}", e);
+            emit_progress("WhatsApp channel ready, waiting for restart...", false, None);
+        }
+    }
+
+    // Wait 5 seconds for the gateway to restart after channel installation
+    emit_progress("Waiting for gateway to restart...", false, None);
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // Now run the login command with streaming output
+    emit_progress("Starting WhatsApp login...", false, None);
+
+    // Spawn the streaming exec in a separate task
+    let tx_clone = tx.clone();
+    let handle = tokio::spawn(async move {
+        let docker = DockerCli::new();
+        docker
+            .docker_exec_streaming(
+                &container_name_clone,
+                &["openclaw", "channels", "login", "--channel", "whatsapp"],
+                tx_clone,
+            )
+            .await
+    });
+
+    // Forward output to frontend
+    while let Some(line) = rx.recv().await {
+        emit_progress(&line, false, None);
+    }
+
+    // Wait for command to complete
+    match handle.await {
+        Ok(Ok(())) => {
+            emit_progress("WhatsApp connected successfully!", true, None);
+            info!(
+                "WhatsApp connected successfully for instance {}",
+                instance_id
+            );
+            Ok(())
+        }
+        Ok(Err(e)) => {
+            let err_msg = format!("WhatsApp connection failed: {}", e);
+            emit_progress(&err_msg, true, Some(&err_msg));
+            Err(err_msg)
+        }
+        Err(e) => {
+            let err_msg = format!("WhatsApp connection task failed: {}", e);
+            emit_progress(&err_msg, true, Some(&err_msg));
+            Err(err_msg)
+        }
+    }
 }

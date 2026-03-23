@@ -385,6 +385,69 @@ impl DockerCli {
         Ok(stdout)
     }
 
+    /// Execute a command in a running container with streaming output
+    /// Sends each line of output to the provided sender
+    /// Returns Ok(()) if command exits with success, Err otherwise
+    pub async fn docker_exec_streaming(
+        &self,
+        container_name: &str,
+        args: &[&str],
+        progress_tx: Sender<String>,
+    ) -> Result<()> {
+        info!(
+            "Executing streaming command in container: {} {:?}",
+            container_name, args
+        );
+
+        let mut cmd = Command::new(&self.docker_bin);
+        cmd.args(["exec", container_name]);
+        cmd.args(args);
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        let mut child = cmd.spawn()?;
+
+        // Stream stdout
+        if let Some(stdout) = child.stdout.take() {
+            let reader = BufReader::new(stdout).lines();
+            let tx = progress_tx.clone();
+
+            tokio::spawn(async move {
+                let mut lines = reader;
+                while let Ok(Some(line)) = lines.next_line().await {
+                    debug!("stdout: {}", line);
+                    let _ = tx.send(line).await;
+                }
+            });
+        }
+
+        // Stream stderr
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr).lines();
+            let tx = progress_tx.clone();
+
+            tokio::spawn(async move {
+                let mut lines = reader;
+                while let Ok(Some(line)) = lines.next_line().await {
+                    debug!("stderr: {}", line);
+                    let _ = tx.send(line).await;
+                }
+            });
+        }
+
+        let status = child.wait().await?;
+
+        if !status.success() {
+            let _ = progress_tx.send("Command failed".to_string()).await;
+            return Err(OutClawError::DockerCommand(
+                "docker exec command failed".to_string(),
+            ));
+        }
+
+        debug!("docker exec streaming completed successfully");
+        Ok(())
+    }
+
     /// Execute a command in a running container with environment variables
     /// Returns the stdout output on success
     #[allow(dead_code)]
