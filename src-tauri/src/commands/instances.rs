@@ -977,13 +977,21 @@ pub async fn connect_whatsapp(
             if output.contains("already installed") || output.contains("already exists") {
                 emit_progress("WhatsApp channel already installed", false, None);
             } else {
-                emit_progress("WhatsApp channel installed, waiting for restart...", false, None);
+                emit_progress(
+                    "WhatsApp channel installed, waiting for restart...",
+                    false,
+                    None,
+                );
             }
         }
         Err(e) => {
             // Non-fatal - channel might already be installed
             warn!("Channel add warning (non-fatal): {}", e);
-            emit_progress("WhatsApp channel ready, waiting for restart...", false, None);
+            emit_progress(
+                "WhatsApp channel ready, waiting for restart...",
+                false,
+                None,
+            );
         }
     }
 
@@ -1074,7 +1082,10 @@ pub async fn add_telegram_channel(
         &token,
     ];
 
-    info!("Running docker exec to add Telegram channel for instance {}", instance_id);
+    info!(
+        "Running docker exec to add Telegram channel for instance {}",
+        instance_id
+    );
 
     state
         .docker_cli
@@ -1088,7 +1099,10 @@ pub async fn add_telegram_channel(
             sanitized
         })?;
 
-    info!("Telegram channel added successfully for instance {}", instance_id);
+    info!(
+        "Telegram channel added successfully for instance {}",
+        instance_id
+    );
     Ok(())
 }
 
@@ -1100,10 +1114,7 @@ pub async fn approve_telegram_pairing(
     pairing_code: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    info!(
-        "Approving Telegram pairing for instance {}",
-        instance_id
-    );
+    info!("Approving Telegram pairing for instance {}", instance_id);
 
     // Validate pairing code format: alphanumeric with optional dashes/underscores
     let code_pattern = regex::Regex::new(r"^[A-Za-z0-9_-]+$").unwrap();
@@ -1121,15 +1132,12 @@ pub async fn approve_telegram_pairing(
     let container_name = format!("outclaw-{}-gateway", config.container_id);
 
     // Execute the pairing approve command
-    let args = [
-        "openclaw",
-        "pairing",
-        "approve",
-        "telegram",
-        &pairing_code,
-    ];
+    let args = ["openclaw", "pairing", "approve", "telegram", &pairing_code];
 
-    info!("Running docker exec to approve Telegram pairing for instance {}", instance_id);
+    info!(
+        "Running docker exec to approve Telegram pairing for instance {}",
+        instance_id
+    );
 
     state
         .docker_cli
