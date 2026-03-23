@@ -12,7 +12,7 @@
 
 	let { instanceId, onSuccess, onError }: Props = $props();
 
-	// Step state: 1 = create bot (enter token), 2 = enter pairing code
+	// Step state: 1 = create bot (enter token), 2 = enter pairing code, 3 = success
 	let step = $state(1);
 	let isSubmitting = $state(false);
 	let error = $state<string | null>(null);
@@ -21,9 +21,20 @@
 	let botToken = $state('');
 	let pairingCode = $state('');
 
+	// Simple token format validation (numeric_id:alphanumeric_string)
+	function isValidTokenFormat(token: string): boolean {
+		return /^\d+:[A-Za-z0-9_-]{30,}$/.test(token);
+	}
+
 	async function handleConnectToken() {
-		if (!botToken.trim()) {
+		const token = botToken.trim();
+		if (!token) {
 			error = 'Please enter a bot token';
+			return;
+		}
+
+		if (!isValidTokenFormat(token)) {
+			error = 'Invalid token format. Expected: 1234567890:ABCdef...';
 			return;
 		}
 
@@ -33,21 +44,30 @@
 		try {
 			await invoke('add_telegram_channel', {
 				instanceId,
-				token: botToken.trim()
+				token
 			});
 			// Success - move to step 2
 			step = 2;
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-			onError?.(error ?? 'Failed to add Telegram channel');
+			const errMsg = e instanceof Error ? e.message : String(e);
+			// Error messages from backend are already sanitized
+			error = errMsg || 'Failed to add Telegram channel';
+			onError?.(error);
 		} finally {
 			isSubmitting = false;
 		}
 	}
 
 	async function handlePair() {
-		if (!pairingCode.trim()) {
+		const code = pairingCode.trim();
+		if (!code) {
 			error = 'Please enter a pairing code';
+			return;
+		}
+
+		// Basic alphanumeric validation for pairing code
+		if (!/^[A-Za-z0-9_-]+$/.test(code)) {
+			error = 'Invalid pairing code format';
 			return;
 		}
 
@@ -57,13 +77,14 @@
 		try {
 			await invoke('approve_telegram_pairing', {
 				instanceId,
-				pairingCode: pairingCode.trim()
+				pairingCode: code
 			});
-			// Success!
-			onSuccess?.();
-		} catch {
-			error = 'Pairing request failed. Please check the code and try again.';
-			// Don't call onError here - user can retry
+			// Success - show confirmation briefly then close
+			step = 3;
+			setTimeout(() => onSuccess?.(), 800);
+		} catch (e) {
+			const errMsg = e instanceof Error ? e.message : String(e);
+			error = errMsg || 'Pairing failed. Check the code and try again.';
 		} finally {
 			isSubmitting = false;
 		}
@@ -146,7 +167,7 @@
 				</button>
 			</div>
 		</div>
-	{:else}
+	{:else if step === 2}
 		<!-- Step 2: Pairing Code -->
 		<div class="space-y-4">
 			<div class="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
@@ -204,6 +225,21 @@
 						<span>Pair</span>
 					{/if}
 				</button>
+			</div>
+		</div>
+	{:else}
+		<!-- Step 3: Success -->
+		<div class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+			<div class="flex items-center gap-3">
+				<svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<p class="text-sm font-medium text-blue-400">Telegram Connected!</p>
 			</div>
 		</div>
 	{/if}

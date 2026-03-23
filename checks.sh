@@ -24,6 +24,7 @@ printf "\n\033[1m Running checks…\033[0m\n\n"
 run_check "svelte-check + TypeScript"  npm run check
 run_check "ESLint"                     npm run lint
 run_check "Prettier"                   npm run format:check
+run_check "Cargo fmt"                  cargo fmt --check --manifest-path src-tauri/Cargo.toml
 run_check "Cargo clippy"               cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml
 run_check "Cargo test"                 cargo test --manifest-path src-tauri/Cargo.toml
 

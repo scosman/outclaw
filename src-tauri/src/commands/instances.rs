@@ -1048,6 +1048,12 @@ pub async fn add_telegram_channel(
 ) -> Result<(), String> {
     info!("Adding Telegram channel for instance {}", instance_id);
 
+    // Validate token format: numeric_id:alphanumeric_string
+    let token_pattern = regex::Regex::new(r"^\d+:[A-Za-z0-9_-]+$").unwrap();
+    if !token_pattern.is_match(&token) {
+        return Err("Invalid token format. Expected: 1234567890:ABCdef...".to_string());
+    }
+
     // Get the instance config to find the container ID
     let config = state
         .instance_manager
@@ -1068,16 +1074,18 @@ pub async fn add_telegram_channel(
         &token,
     ];
 
-    info!("Running docker exec to add Telegram channel");
+    info!("Running docker exec to add Telegram channel for instance {}", instance_id);
 
     state
         .docker_cli
         .docker_exec(&container_name, &args)
         .await
         .map_err(|e| {
-            let err_msg = format!("Failed to add Telegram channel: {}", e);
-            warn!("{}", err_msg);
-            err_msg
+            // Sanitize error message - don't leak the token
+            let err_str = e.to_string();
+            let sanitized = err_str.replace(&token, "***TOKEN***");
+            warn!("Failed to add Telegram channel: {}", sanitized);
+            sanitized
         })?;
 
     info!("Telegram channel added successfully for instance {}", instance_id);
@@ -1097,6 +1105,12 @@ pub async fn approve_telegram_pairing(
         instance_id
     );
 
+    // Validate pairing code format: alphanumeric with optional dashes/underscores
+    let code_pattern = regex::Regex::new(r"^[A-Za-z0-9_-]+$").unwrap();
+    if !code_pattern.is_match(&pairing_code) {
+        return Err("Invalid pairing code format".to_string());
+    }
+
     // Get the instance config to find the container ID
     let config = state
         .instance_manager
@@ -1115,15 +1129,15 @@ pub async fn approve_telegram_pairing(
         &pairing_code,
     ];
 
-    info!("Running docker exec to approve Telegram pairing");
+    info!("Running docker exec to approve Telegram pairing for instance {}", instance_id);
 
     state
         .docker_cli
         .docker_exec(&container_name, &args)
         .await
         .map_err(|e| {
-            let err_msg = format!("Failed to approve Telegram pairing: {}", e);
-            warn!("{}", err_msg);
+            let err_msg = e.to_string();
+            warn!("Failed to approve Telegram pairing: {}", err_msg);
             err_msg
         })?;
 
