@@ -25,8 +25,8 @@ impl Default for DockerCli {
 impl DockerCli {
     pub fn new() -> Self {
         // Allow override via environment variable
-        let docker_bin = std::env::var("OUTCLAW_DOCKER_BIN")
-            .unwrap_or_else(|_| "docker".to_string());
+        let docker_bin =
+            std::env::var("OUTCLAW_DOCKER_BIN").unwrap_or_else(|_| "docker".to_string());
         Self { docker_bin }
     }
 
@@ -63,9 +63,7 @@ impl DockerCli {
             .output()
             .await;
 
-        let compose_available = compose_check
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        let compose_available = compose_check.map(|o| o.status.success()).unwrap_or(false);
 
         Ok(DockerStatus {
             state,
@@ -80,8 +78,10 @@ impl DockerCli {
         let output = Command::new(&self.docker_bin)
             .args([
                 "compose",
-                "-f", compose_path.to_str().unwrap(),
-                "-p", project_name,
+                "-f",
+                compose_path.to_str().unwrap(),
+                "-p",
+                project_name,
                 "up",
                 "-d",
             ])
@@ -108,8 +108,10 @@ impl DockerCli {
         let output = Command::new(&self.docker_bin)
             .args([
                 "compose",
-                "-f", compose_path.to_str().unwrap(),
-                "-p", project_name,
+                "-f",
+                compose_path.to_str().unwrap(),
+                "-p",
+                project_name,
                 "stop",
             ])
             .output()
@@ -135,8 +137,10 @@ impl DockerCli {
         let output = Command::new(&self.docker_bin)
             .args([
                 "compose",
-                "-f", compose_path.to_str().unwrap(),
-                "-p", project_name,
+                "-f",
+                compose_path.to_str().unwrap(),
+                "-p",
+                project_name,
                 "down",
             ])
             .output()
@@ -164,7 +168,8 @@ impl DockerCli {
         args: &[&str],
         user: Option<&str>,
     ) -> Result<String> {
-        self.compose_run_with_entrypoint(compose_path, project_name, service, args, user, None).await
+        self.compose_run_with_entrypoint(compose_path, project_name, service, args, user, None)
+            .await
     }
 
     /// Run a command in a compose service container with optional entrypoint override
@@ -182,8 +187,10 @@ impl DockerCli {
         let mut cmd = Command::new(&self.docker_bin);
         cmd.args([
             "compose",
-            "-f", compose_path.to_str().unwrap(),
-            "-p", project_name,
+            "-f",
+            compose_path.to_str().unwrap(),
+            "-p",
+            project_name,
             "run",
             "--rm",
         ]);
@@ -227,11 +234,7 @@ impl DockerCli {
         info!("Building Docker image with tag {}", tag);
 
         let mut cmd = Command::new(&self.docker_bin);
-        cmd.args([
-            "build",
-            "-t", tag,
-            context_path.to_str().unwrap(),
-        ]);
+        cmd.args(["build", "-t", tag, context_path.to_str().unwrap()]);
 
         // Add build args
         for (key, value) in build_args {
@@ -261,10 +264,14 @@ impl DockerCli {
 
         if !status.success() {
             let _ = progress_tx.send("Build failed".to_string()).await;
-            return Err(OutClawError::DockerCommand("Docker build failed".to_string()));
+            return Err(OutClawError::DockerCommand(
+                "Docker build failed".to_string(),
+            ));
         }
 
-        let _ = progress_tx.send("Build completed successfully".to_string()).await;
+        let _ = progress_tx
+            .send("Build completed successfully".to_string())
+            .await;
         info!("Docker build completed successfully");
         Ok(())
     }
@@ -277,8 +284,10 @@ impl DockerCli {
             .args([
                 "ps",
                 "-a",
-                "--filter", &format!("label={}", label_filter),
-                "--format", "json",
+                "--filter",
+                &format!("label={}", label_filter),
+                "--format",
+                "json",
             ])
             .output()
             .await?;
@@ -303,15 +312,12 @@ impl DockerCli {
     }
 
     /// Inspect a container by name or ID
+    #[allow(dead_code)]
     pub async fn inspect_container(&self, container_name: &str) -> Result<ContainerInfo> {
         debug!("Inspecting container: {}", container_name);
 
         let output = Command::new(&self.docker_bin)
-            .args([
-                "inspect",
-                "--format", "json",
-                container_name,
-            ])
+            .args(["inspect", "--format", "json", container_name])
             .output()
             .await?;
 
@@ -324,8 +330,9 @@ impl DockerCli {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let info: ContainerInfo = serde_json::from_str(&stdout)
-            .map_err(|e| OutClawError::Serialization(format!("Failed to parse container info: {}", e)))?;
+        let info: ContainerInfo = serde_json::from_str(&stdout).map_err(|e| {
+            OutClawError::Serialization(format!("Failed to parse container info: {}", e))
+        })?;
 
         Ok(info)
     }
@@ -352,13 +359,13 @@ impl DockerCli {
     /// Execute a command in a running container
     /// Returns the stdout output on success
     pub async fn docker_exec(&self, container_name: &str, args: &[&str]) -> Result<String> {
-        info!("Executing command in container: {} {:?}", container_name, args);
+        info!(
+            "Executing command in container: {} {:?}",
+            container_name, args
+        );
 
         let mut cmd = Command::new(&self.docker_bin);
-        cmd.args([
-            "exec",
-            container_name,
-        ]);
+        cmd.args(["exec", container_name]);
         cmd.args(args);
 
         let output = cmd.output().await?;
@@ -380,13 +387,17 @@ impl DockerCli {
 
     /// Execute a command in a running container with environment variables
     /// Returns the stdout output on success
+    #[allow(dead_code)]
     pub async fn docker_exec_with_env(
         &self,
         container_name: &str,
         args: &[&str],
         env_vars: &[(String, String)],
     ) -> Result<String> {
-        info!("Executing command in container with env: {} {:?}", container_name, args);
+        info!(
+            "Executing command in container with env: {} {:?}",
+            container_name, args
+        );
 
         let mut cmd = Command::new(&self.docker_bin);
         cmd.args(["exec"]);
@@ -434,11 +445,13 @@ pub struct ContainerInfo {
 
 impl ContainerInfo {
     /// Get the container's OutClaw container ID from labels
+    #[allow(dead_code)]
     pub fn outclaw_container_id(&self) -> Option<&str> {
         self.labels.get("outclaw.container").map(|s| s.as_str())
     }
 
     /// Get the container's OutClaw instance ID from labels
+    #[allow(dead_code)]
     pub fn outclaw_instance_id(&self) -> Option<&str> {
         self.labels.get("outclaw.instance").map(|s| s.as_str())
     }

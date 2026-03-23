@@ -9,9 +9,9 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::{debug, error, info};
 
+use crate::commands::instances::AppState;
 use crate::docker::DockerCli;
 use crate::instance::{DockerState, InstanceState, InstanceStatus};
-use crate::commands::instances::AppState;
 
 /// Background poller for Docker and instance status
 pub struct Poller {
@@ -121,7 +121,10 @@ async fn get_instance_status(
     _container_id: &str,
 ) -> InstanceStatus {
     // Try to find the container by label
-    match docker_cli.list_containers(&format!("outclaw.instance={}", instance_id)).await {
+    match docker_cli
+        .list_containers(&format!("outclaw.instance={}", instance_id))
+        .await
+    {
         Ok(containers) => {
             if let Some(container) = containers.first() {
                 InstanceStatus {
@@ -142,12 +145,10 @@ async fn get_instance_status(
                 }
             }
         }
-        Err(e) => {
-            InstanceStatus {
-                state: InstanceState::Error,
-                container_id: None,
-                error_message: Some(format!("Failed to query Docker: {}", e)),
-            }
-        }
+        Err(e) => InstanceStatus {
+            state: InstanceState::Error,
+            container_id: None,
+            error_message: Some(format!("Failed to query Docker: {}", e)),
+        },
     }
 }

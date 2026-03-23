@@ -44,7 +44,10 @@ pub async fn fetch_release_source(
         OPENCLAW_REPO, release.tag
     );
 
-    info!("Fetching source tarball for {} from {}", release.tag, tarball_url);
+    info!(
+        "Fetching source tarball for {} from {}",
+        release.tag, tarball_url
+    );
 
     let response = client
         .get(&tarball_url)
@@ -104,7 +107,8 @@ pub async fn fetch_release_source(
     // Verify it looks like the OpenClaw repo
     if !actual_extracted.join("package.json").exists() {
         return Err(OutClawError::SourceFetch(
-            "Downloaded source does not contain package.json - not a valid OpenClaw release".to_string()
+            "Downloaded source does not contain package.json - not a valid OpenClaw release"
+                .to_string(),
         ));
     }
 
@@ -114,8 +118,9 @@ pub async fn fetch_release_source(
     }
 
     // Move to final location
-    std::fs::rename(&actual_extracted, &extracted_dir)
-        .map_err(|e| OutClawError::SourceFetch(format!("Failed to move extracted source: {}", e)))?;
+    std::fs::rename(&actual_extracted, &extracted_dir).map_err(|e| {
+        OutClawError::SourceFetch(format!("Failed to move extracted source: {}", e))
+    })?;
 
     // Clean up temp dir
     let _ = std::fs::remove_dir_all(&temp_extract_dir);

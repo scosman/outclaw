@@ -76,23 +76,25 @@
 			if (payload.id !== instanceId) return;
 
 			// Update stage status
-			const stageIndex = stages.findIndex((s) => s.id === payload.stage);
-			if (stageIndex >= 0) {
-				if (payload.error) {
-					stages[stageIndex].status = 'error';
-				} else if (payload.done && payload.stage === 'complete') {
-					// Mark all as complete
-					stages = stages.map((s) => ({ ...s, status: 'complete' as const }));
-				} else if (payload.done) {
-					stages[stageIndex].status = 'complete';
-				} else {
-					// Mark current as in-progress, previous as complete
-					for (let i = 0; i < stageIndex; i++) {
-						if (stages[i].status === 'pending') {
-							stages[i].status = 'complete';
+			// Handle "complete" stage specially - it marks all stages done
+			if (payload.stage === 'complete' && payload.done) {
+				stages = stages.map((s) => ({ ...s, status: 'complete' as const }));
+			} else {
+				const stageIndex = stages.findIndex((s) => s.id === payload.stage);
+				if (stageIndex >= 0) {
+					if (payload.error) {
+						stages[stageIndex].status = 'error';
+					} else if (payload.done) {
+						stages[stageIndex].status = 'complete';
+					} else {
+						// Mark current as in-progress, all previous as complete
+						for (let i = 0; i < stageIndex; i++) {
+							if (stages[i].status !== 'complete') {
+								stages[i].status = 'complete';
+							}
 						}
+						stages[stageIndex].status = 'in-progress';
 					}
-					stages[stageIndex].status = 'in-progress';
 				}
 			}
 

@@ -7,8 +7,7 @@ use tracing::{debug, info, warn};
 
 use crate::error::{OutClawError, Result};
 use crate::instance::{
-    generate_name, allocate_ports, validate_port,
-    InstanceConfig, InstanceSettings,
+    allocate_ports, generate_name, validate_port, InstanceConfig, InstanceSettings,
 };
 
 /// Manages instance CRUD operations and directory structure
@@ -25,9 +24,10 @@ impl InstanceManager {
 
         // Ensure base directory exists
         fs::create_dir_all(&base_dir).map_err(|e| {
-            OutClawError::Io(std::io::Error::other(
-                format!("Failed to create .outclaw directory: {}", e),
-            ))
+            OutClawError::Io(std::io::Error::other(format!(
+                "Failed to create .outclaw directory: {}",
+                e
+            )))
         })?;
 
         Ok(Self { base_dir })
@@ -167,7 +167,10 @@ impl InstanceManager {
         self.create_instance_directories(&config)?;
 
         // Write instance.json
-        let config_path = self.instances_dir().join(&instance_id).join("instance.json");
+        let config_path = self
+            .instances_dir()
+            .join(&instance_id)
+            .join("instance.json");
         let config_content = serde_json::to_string_pretty(&config)?;
         fs::write(&config_path, config_content)?;
 

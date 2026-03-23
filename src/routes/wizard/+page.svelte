@@ -8,12 +8,7 @@
 	import BuildProgress from '$lib/components/BuildProgress.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import StatusDot from '$lib/components/StatusDot.svelte';
-	import {
-		PROVIDERS,
-		getProviderById,
-		getDefaultProvider,
-		type ProviderConfig
-	} from '$lib/config/providers';
+	import { PROVIDERS, getProviderById, getDefaultProvider } from '$lib/config/providers';
 	import type { InstanceWithStatus } from '$lib/types/instance';
 	import { getGatewayUrl, formatInstanceState } from '$lib/types/instance';
 
@@ -445,111 +440,115 @@
 				</div>
 
 				<div class="space-y-6">
-					<!-- Provider Selection Form -->
-					<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-						<div class="space-y-4">
-							<!-- Provider Dropdown -->
-							<div>
-								<label for="provider-select" class="mb-1.5 block text-sm font-medium text-zinc-200">
-									Select Provider
-								</label>
-								<select
-									id="provider-select"
-									class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-									bind:value={selectedProviderId}
-									onchange={() => {
-										connectionError = null;
-										connectionSuccess = false;
-									}}
-								>
-									{#each PROVIDERS as provider (provider.id)}
-										<option value={provider.id}>{provider.label}</option>
-									{/each}
-								</select>
-								<p class="mt-1 text-xs text-zinc-500">{selectedProvider.description}</p>
-							</div>
-
-							<!-- Dynamic Fields -->
-							{#each selectedProvider.fields as field (field.name)}
+					{#if connectionSuccess}
+						<!-- Success State - Hide form, show success -->
+						<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6">
+							<div class="flex flex-col items-center gap-4 text-center">
+								<div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
+									<svg
+										class="h-6 w-6 text-emerald-400"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+								</div>
 								<div>
-									<label for={field.name} class="mb-1.5 block text-sm font-medium text-zinc-200">
-										{field.label}
-										{#if field.required}
-											<span class="text-red-400">*</span>
-										{/if}
+									<p class="text-lg font-medium text-emerald-400">Provider Connected!</p>
+									<p class="mt-1 text-sm text-zinc-400">
+										{selectedProvider.label} is ready to use
+									</p>
+								</div>
+							</div>
+						</div>
+					{:else}
+						<!-- Provider Selection Form -->
+						<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+							<div class="space-y-4">
+								<!-- Provider Dropdown -->
+								<div>
+									<label for="provider-select" class="mb-1.5 block text-sm font-medium text-zinc-200">
+										Select Provider
 									</label>
-									<input
-										id={field.name}
-										type={field.secret ? 'password' : 'text'}
-										class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-										placeholder={field.placeholder || ''}
-										bind:value={providerFieldValues[field.name]}
-										oninput={() => {
+									<select
+										id="provider-select"
+										class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+										bind:value={selectedProviderId}
+										onchange={() => {
 											connectionError = null;
 										}}
-									/>
+									>
+										{#each PROVIDERS as provider (provider.id)}
+											<option value={provider.id}>{provider.label}</option>
+										{/each}
+									</select>
+									<p class="mt-1 text-xs text-zinc-500">{selectedProvider.description}</p>
 								</div>
-							{/each}
 
-							<!-- Connection Error -->
-							{#if connectionError}
-								<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-									<p class="text-sm text-red-400">{connectionError}</p>
-								</div>
-							{/if}
-
-							<!-- Connection Success -->
-							{#if connectionSuccess}
-								<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-									<div class="flex items-center gap-2">
-										<svg
-											class="h-5 w-5 text-emerald-400"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M5 13l4 4L19 7"
-											/>
-										</svg>
-										<p class="text-sm text-emerald-400">Provider connected successfully!</p>
+								<!-- Dynamic Fields -->
+								{#each selectedProvider.fields as field (field.name)}
+									<div>
+										<label for={field.name} class="mb-1.5 block text-sm font-medium text-zinc-200">
+											{field.label}
+											{#if field.required !== false}
+												<span class="text-red-400">*</span>
+											{/if}
+										</label>
+										<input
+											id={field.name}
+											type={field.secret ? 'password' : 'text'}
+											class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+											placeholder={field.placeholder || ''}
+											bind:value={providerFieldValues[field.name]}
+											oninput={() => {
+												connectionError = null;
+											}}
+										/>
 									</div>
-								</div>
-							{/if}
+								{/each}
 
-							<!-- Connect Button -->
-							<button
-								type="button"
-								class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={isConnecting || !isProviderFormValid()}
-								onclick={async () => {
-									if (!wizardStore.createdInstanceId) {
-										connectionError =
-											'No instance found. Please go back and create an instance first.';
-										return;
-									}
+								<!-- Connection Error -->
+								{#if connectionError}
+									<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+										<p class="text-sm text-red-400">{connectionError}</p>
+									</div>
+								{/if}
 
-									isConnecting = true;
-									connectionError = null;
-									connectionSuccess = false;
+								<!-- Connect Button -->
+								<button
+									type="button"
+									class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+									disabled={isConnecting || !isProviderFormValid()}
+									onclick={async () => {
+										if (!wizardStore.createdInstanceId) {
+											connectionError =
+												'No instance found. Please go back and create an instance first.';
+											return;
+										}
 
-									try {
-										await invoke('connect_provider', {
-											instanceId: wizardStore.createdInstanceId,
-											authChoice: selectedProviderId,
-											fields: providerFieldValues
-										});
-										connectionSuccess = true;
-									} catch (e) {
-										connectionError = `Failed to connect provider: ${e}`;
-									} finally {
-										isConnecting = false;
-									}
-								}}
-							>
+										isConnecting = true;
+										connectionError = null;
+
+										try {
+											await invoke('connect_provider', {
+												instanceId: wizardStore.createdInstanceId,
+												authChoice: selectedProviderId,
+												fields: providerFieldValues
+											});
+											connectionSuccess = true;
+										} catch (e) {
+											connectionError = `${e}`;
+										} finally {
+											isConnecting = false;
+										}
+									}}
+								>
 								{#if isConnecting}
 									<div
 										class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
@@ -596,6 +595,7 @@
 							</div>
 						</div>
 					</div>
+					{/if}
 				</div>
 			</div>
 		{:else if wizardStore.currentStep === 'channel'}
@@ -804,13 +804,15 @@
 				Back to Settings
 			</button>
 		{:else if wizardStore.currentStep === 'provider'}
-			<button
-				type="button"
-				class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
-				onclick={handleNext}
-			>
-				Skip
-			</button>
+			{#if !connectionSuccess}
+				<button
+					type="button"
+					class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+					onclick={handleNext}
+				>
+					Skip
+				</button>
+			{/if}
 			{#if connectionSuccess}
 				<button
 					type="button"

@@ -48,7 +48,9 @@ impl InstanceConfig {
     /// on properly configured systems, but could occur in unusual environments.
     pub fn outclaw_dir() -> std::path::PathBuf {
         dirs::home_dir()
-            .expect("Cannot determine home directory - please ensure HOME environment variable is set")
+            .expect(
+                "Cannot determine home directory - please ensure HOME environment variable is set",
+            )
             .join(".outclaw")
     }
 

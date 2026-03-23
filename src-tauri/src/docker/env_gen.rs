@@ -30,7 +30,10 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
 
     // Additional packages
     if !config.apt_packages.is_empty() {
-        lines.push(format!("OPENCLAW_DOCKER_APT_PACKAGES={}", config.apt_packages));
+        lines.push(format!(
+            "OPENCLAW_DOCKER_APT_PACKAGES={}",
+            config.apt_packages
+        ));
     }
 
     // Extensions
@@ -70,8 +73,8 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
     use crate::instance::GatewayBind;
+    use chrono::Utc;
 
     fn create_test_config() -> InstanceConfig {
         InstanceConfig {

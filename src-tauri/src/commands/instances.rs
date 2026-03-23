@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
-use tracing::{info, warn};
 use tokio::sync::{mpsc, RwLock};
+use tracing::{info, warn};
 
-use crate::docker::{generate_compose, generate_env, fetch_release_source, DockerCli};
+use crate::docker::{fetch_release_source, generate_compose, generate_env, DockerCli};
 use crate::github::ReleasesClient;
 use crate::instance::{
-    InstanceConfig, InstanceManager, InstanceSettings, InstanceStatus, InstanceState,
+    InstanceConfig, InstanceManager, InstanceSettings, InstanceState, InstanceStatus,
     InstanceWithStatus, Release,
 };
 
@@ -26,7 +26,10 @@ impl BuildTracker {
 
     pub async fn register(&self, instance_id: &str) -> tokio_util::sync::CancellationToken {
         let token = tokio_util::sync::CancellationToken::new();
-        self.active_builds.write().await.insert(instance_id.to_string(), token.clone());
+        self.active_builds
+            .write()
+            .await
+            .insert(instance_id.to_string(), token.clone());
         token
     }
 
@@ -67,7 +70,9 @@ impl Default for AppState {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            instance_manager: Arc::new(InstanceManager::new().expect("Failed to create InstanceManager")),
+            instance_manager: Arc::new(
+                InstanceManager::new().expect("Failed to create InstanceManager"),
+            ),
             docker_cli: Arc::new(DockerCli::new()),
             build_tracker: Arc::new(BuildTracker::new()),
         }
@@ -76,15 +81,10 @@ impl AppState {
 
 /// List all instances with their current status
 #[tauri::command]
-pub async fn list_instances(
-    state: State<'_, AppState>,
-) -> Result<Vec<InstanceWithStatus>, String> {
+pub async fn list_instances(state: State<'_, AppState>) -> Result<Vec<InstanceWithStatus>, String> {
     info!("Listing instances");
 
-    let instances = state
-        .instance_manager
-        .list()
-        .map_err(|e| e.to_string())?;
+    let instances = state.instance_manager.list().map_err(|e| e.to_string())?;
 
     // Get Docker status
     let docker_status = state
@@ -104,7 +104,11 @@ pub async fn list_instances(
             }
         } else {
             // Query Docker for actual container status
-            match state.docker_cli.list_containers(&format!("outclaw.instance={}", config.id)).await {
+            match state
+                .docker_cli
+                .list_containers(&format!("outclaw.instance={}", config.id))
+                .await
+            {
                 Ok(containers) => {
                     if let Some(container) = containers.first() {
                         InstanceStatus {
@@ -124,13 +128,11 @@ pub async fn list_instances(
                         }
                     }
                 }
-                Err(e) => {
-                    InstanceStatus {
-                        state: InstanceState::Error,
-                        container_id: None,
-                        error_message: Some(format!("Failed to query Docker: {}", e)),
-                    }
-                }
+                Err(e) => InstanceStatus {
+                    state: InstanceState::Error,
+                    container_id: None,
+                    error_message: Some(format!("Failed to query Docker: {}", e)),
+                },
             }
         };
         result.push(InstanceWithStatus { config, status });
@@ -148,10 +150,7 @@ pub async fn get_instance(
 ) -> Result<InstanceWithStatus, String> {
     info!("Getting instance {}", id);
 
-    let config = state
-        .instance_manager
-        .get(&id)
-        .map_err(|e| e.to_string())?;
+    let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
 
     // Get status (simplified for now)
     let status = InstanceStatus::default();
@@ -177,13 +176,11 @@ pub async fn create_instance(
 
     // Generate docker-compose.yml
     let compose = generate_compose(&config).map_err(|e| e.to_string())?;
-    std::fs::write(docker_dir.join("docker-compose.yml"), compose)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(docker_dir.join("docker-compose.yml"), compose).map_err(|e| e.to_string())?;
 
     // Generate .env
     let env = generate_env(&config).map_err(|e| e.to_string())?;
-    std::fs::write(docker_dir.join(".env"), env)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(docker_dir.join(".env"), env).map_err(|e| e.to_string())?;
 
     info!("Created instance {} ({})", config.name, config.id);
     Ok(config)
@@ -207,12 +204,10 @@ pub async fn update_instance(
     let docker_dir = config.docker_path();
 
     let compose = generate_compose(&config).map_err(|e| e.to_string())?;
-    std::fs::write(docker_dir.join("docker-compose.yml"), compose)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(docker_dir.join("docker-compose.yml"), compose).map_err(|e| e.to_string())?;
 
     let env = generate_env(&config).map_err(|e| e.to_string())?;
-    std::fs::write(docker_dir.join(".env"), env)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(docker_dir.join(".env"), env).map_err(|e| e.to_string())?;
 
     info!("Updated instance {}", id);
     Ok(config)
@@ -237,10 +232,7 @@ pub async fn rename_instance(
 
 /// Delete an instance
 #[tauri::command]
-pub async fn delete_instance(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
     info!("Deleting instance {}", id);
 
     // Get config before deletion to clean up Docker resources
@@ -253,7 +245,10 @@ pub async fn delete_instance(
         let project_name = format!("outclaw-{}", cfg.container_id);
 
         // Stop container
-        let _ = state.docker_cli.compose_down(&compose_path, &project_name).await;
+        let _ = state
+            .docker_cli
+            .compose_down(&compose_path, &project_name)
+            .await;
 
         // Remove image
         let image_name = format!("outclaw-{}:latest", cfg.container_id);
@@ -272,16 +267,10 @@ pub async fn delete_instance(
 
 /// Start an instance
 #[tauri::command]
-pub async fn start_instance(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn start_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
     info!("Starting instance {}", id);
 
-    let config = state
-        .instance_manager
-        .get(&id)
-        .map_err(|e| e.to_string())?;
+    let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
@@ -299,16 +288,10 @@ pub async fn start_instance(
 
 /// Stop an instance
 #[tauri::command]
-pub async fn stop_instance(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn stop_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
     info!("Stopping instance {}", id);
 
-    let config = state
-        .instance_manager
-        .get(&id)
-        .map_err(|e| e.to_string())?;
+    let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
@@ -326,10 +309,7 @@ pub async fn stop_instance(
 
 /// Restart an instance
 #[tauri::command]
-pub async fn restart_instance(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn restart_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
     info!("Restarting instance {}", id);
 
     stop_instance(id.clone(), state.clone()).await?;
@@ -359,10 +339,7 @@ pub async fn build_instance(
         }
     };
 
-    let config = state
-        .instance_manager
-        .get(&id)
-        .map_err(|e| e.to_string())?;
+    let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
@@ -371,13 +348,16 @@ pub async fn build_instance(
 
     // Helper to emit progress
     let emit_progress = |stage: &str, log: &str, done: bool, error: Option<&str>| {
-        if let Err(e) = app_handle.emit("build-progress", serde_json::json!({
-            "id": id,
-            "stage": stage,
-            "log": log,
-            "done": done,
-            "error": error
-        })) {
+        if let Err(e) = app_handle.emit(
+            "build-progress",
+            serde_json::json!({
+                "id": id,
+                "stage": stage,
+                "log": log,
+                "done": done,
+                "error": error
+            }),
+        ) {
             warn!("Failed to emit build progress: {}", e);
         }
     };
@@ -389,7 +369,12 @@ pub async fn build_instance(
     };
 
     // ========== Stage 1: Fetch source ==========
-    emit_progress("fetching-source", "Fetching OpenClaw source from GitHub...", false, None);
+    emit_progress(
+        "fetching-source",
+        "Fetching OpenClaw source from GitHub...",
+        false,
+        None,
+    );
 
     // Get the release info
     let releases_client = match ReleasesClient::new() {
@@ -405,13 +390,21 @@ pub async fn build_instance(
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to fetch releases: {}", e);
-            emit_progress("fetching-source", "Warning: Could not fetch releases list, proceeding with version tag", false, None);
+            emit_progress(
+                "fetching-source",
+                "Warning: Could not fetch releases list, proceeding with version tag",
+                false,
+                None,
+            );
             vec![]
         }
     };
 
     // Find the release matching our version
-    let release = releases.iter().find(|r| r.tag == config.openclaw_version).cloned()
+    let release = releases
+        .iter()
+        .find(|r| r.tag == config.openclaw_version)
+        .cloned()
         .unwrap_or_else(|| Release {
             tag: config.openclaw_version.clone(),
             name: config.openclaw_version.clone(),
@@ -436,7 +429,12 @@ pub async fn build_instance(
 
     let source_dir = match fetch_release_source(&release, &docker_dir, &http_client).await {
         Ok(path) => {
-            emit_progress("fetching-source", &format!("Source ready for {}", release.tag), false, None);
+            emit_progress(
+                "fetching-source",
+                &format!("Source ready for {}", release.tag),
+                false,
+                None,
+            );
             path
         }
         Err(e) => {
@@ -452,7 +450,12 @@ pub async fn build_instance(
     }
 
     // ========== Stage 2: Generate configuration files ==========
-    emit_progress("generating-config", "Generating docker-compose.yml and .env...", false, None);
+    emit_progress(
+        "generating-config",
+        "Generating docker-compose.yml and .env...",
+        false,
+        None,
+    );
 
     let compose = match generate_compose(&config) {
         Ok(c) => c,
@@ -484,7 +487,12 @@ pub async fn build_instance(
         return Err(err_msg);
     }
 
-    emit_progress("generating-config", "Configuration files generated", false, None);
+    emit_progress(
+        "generating-config",
+        "Configuration files generated",
+        false,
+        None,
+    );
 
     if let Err(e) = check_cancelled() {
         state.build_tracker.unregister(&id).await;
@@ -505,17 +513,25 @@ pub async fn build_instance(
 
         // Add build args from config - map to OpenClaw Dockerfile's expected args
         if !config_clone.apt_packages.is_empty() {
-            build_args.insert("OPENCLAW_DOCKER_APT_PACKAGES".to_string(), config_clone.apt_packages.clone());
+            build_args.insert(
+                "OPENCLAW_DOCKER_APT_PACKAGES".to_string(),
+                config_clone.apt_packages.clone(),
+            );
         }
         if !config_clone.extensions.is_empty() {
-            build_args.insert("OPENCLAW_EXTENSIONS".to_string(), config_clone.extensions.clone());
+            build_args.insert(
+                "OPENCLAW_EXTENSIONS".to_string(),
+                config_clone.extensions.clone(),
+            );
         }
         if config_clone.install_browser {
             build_args.insert("OPENCLAW_INSTALL_BROWSER".to_string(), "1".to_string());
         }
 
         // Build using the source directory as context (contains Dockerfile)
-        docker.build(&source_dir_clone, &image_name_clone, &build_args, tx).await
+        docker
+            .build(&source_dir_clone, &image_name_clone, &build_args, tx)
+            .await
     });
 
     // Forward build output
@@ -526,7 +542,12 @@ pub async fn build_instance(
     // Wait for build to complete and check result
     match build_handle.await {
         Ok(Ok(())) => {
-            emit_progress("building-image", "Docker image built successfully", false, None);
+            emit_progress(
+                "building-image",
+                "Docker image built successfully",
+                false,
+                None,
+            );
         }
         Ok(Err(e)) => {
             let err_msg = emit_error("building-image", &e.to_string());
@@ -546,7 +567,12 @@ pub async fn build_instance(
     }
 
     // ========== Stage 4: Verify directories ==========
-    emit_progress("verifying-directories", "Verifying directories...", false, None);
+    emit_progress(
+        "verifying-directories",
+        "Verifying directories...",
+        false,
+        None,
+    );
 
     // Ensure all directories exist
     if let Err(e) = std::fs::create_dir_all(config.config_path()) {
@@ -582,7 +608,11 @@ pub async fn build_instance(
     // ========== Stage 5: Start container ==========
     emit_progress("starting-container", "Starting container...", false, None);
 
-    if let Err(e) = state.docker_cli.compose_up(&compose_path, &project_name).await {
+    if let Err(e) = state
+        .docker_cli
+        .compose_up(&compose_path, &project_name)
+        .await
+    {
         let err_msg = emit_error("starting-container", &e.to_string());
         state.build_tracker.unregister(&id).await;
         return Err(err_msg);
@@ -599,59 +629,105 @@ pub async fn build_instance(
     }
 
     // ========== Stage 6: Run onboarding ==========
-    emit_progress("running-onboarding", "Running initial setup...", false, None);
-
-    let onboarding_result = state.docker_cli.compose_run(
-        &compose_path,
-        &project_name,
-        &format!("{}-cli", project_name),
-        &["onboard", "--mode", "local", "--no-install-daemon"],
+    emit_progress(
+        "running-onboarding",
+        "Running initial setup...",
+        false,
         None,
-    ).await;
+    );
+
+    let onboarding_result = state
+        .docker_cli
+        .compose_run(
+            &compose_path,
+            &project_name,
+            &format!("{}-cli", project_name),
+            &["onboard", "--mode", "local", "--no-install-daemon"],
+            None,
+        )
+        .await;
 
     match onboarding_result {
         Ok(output) => {
-            emit_progress("running-onboarding", &format!("Onboarding output: {}", output.lines().take(3).collect::<Vec<_>>().join("\n")), false, None);
+            emit_progress(
+                "running-onboarding",
+                &format!(
+                    "Onboarding output: {}",
+                    output.lines().take(3).collect::<Vec<_>>().join("\n")
+                ),
+                false,
+                None,
+            );
         }
         Err(e) => {
             // Onboarding might fail if already set up - log but continue
             warn!("Onboarding warning (non-fatal): {}", e);
-            emit_progress("running-onboarding", "Onboarding completed (may have been run before)", false, None);
+            emit_progress(
+                "running-onboarding",
+                "Onboarding completed (may have been run before)",
+                false,
+                None,
+            );
         }
     }
 
     // ========== Stage 7: Fix permissions ==========
-    emit_progress("fixing-permissions", "Fixing file permissions...", false, None);
+    emit_progress(
+        "fixing-permissions",
+        "Fixing file permissions...",
+        false,
+        None,
+    );
 
-    let perm_result = state.docker_cli.compose_run_with_entrypoint(
-        &compose_path,
-        &project_name,
-        &format!("{}-cli", project_name),
-        &["-c", "find /home/node/.openclaw -xdev -exec chown node:node {} +"],
-        Some("root"),
-        Some("sh"),
-    ).await;
+    let perm_result = state
+        .docker_cli
+        .compose_run_with_entrypoint(
+            &compose_path,
+            &project_name,
+            &format!("{}-cli", project_name),
+            &[
+                "-c",
+                "find /home/node/.openclaw -xdev -exec chown node:node {} +",
+            ],
+            Some("root"),
+            Some("sh"),
+        )
+        .await;
 
     match perm_result {
         Ok(_) => emit_progress("fixing-permissions", "Permissions fixed", false, None),
         Err(e) => {
             warn!("Permission fix warning (non-fatal): {}", e);
-            emit_progress("fixing-permissions", "Permissions check completed", false, None);
+            emit_progress(
+                "fixing-permissions",
+                "Permissions check completed",
+                false,
+                None,
+            );
         }
     }
 
     // ========== Stage 8: Configure gateway ==========
-    emit_progress("configuring-gateway", "Configuring gateway settings...", false, None);
+    emit_progress(
+        "configuring-gateway",
+        "Configuring gateway settings...",
+        false,
+        None,
+    );
 
     // Set gateway mode - errors are non-fatal as CLI may not exist
     let gateway_mode = "local";
-    if let Err(e) = state.docker_cli.compose_run(
-        &compose_path,
-        &project_name,
-        &format!("{}-cli", project_name),
-        &["config", "set", "gateway.mode", gateway_mode],
-        None,
-    ).await {
+    if let Err(e) = state
+        .docker_cli
+        .compose_run(
+            &compose_path,
+            &project_name,
+            &format!("{}-cli", project_name),
+            &["config", "set", "gateway.mode", gateway_mode],
+            None,
+        )
+        .await
+    {
         warn!("Gateway mode config warning (non-fatal): {}", e);
     }
 
@@ -660,28 +736,45 @@ pub async fn build_instance(
         crate::instance::GatewayBind::Loopback => "loopback",
         crate::instance::GatewayBind::Lan => "lan",
     };
-    if let Err(e) = state.docker_cli.compose_run(
-        &compose_path,
-        &project_name,
-        &format!("{}-cli", project_name),
-        &["config", "set", "gateway.bind", bind_mode],
-        None,
-    ).await {
+    if let Err(e) = state
+        .docker_cli
+        .compose_run(
+            &compose_path,
+            &project_name,
+            &format!("{}-cli", project_name),
+            &["config", "set", "gateway.bind", bind_mode],
+            None,
+        )
+        .await
+    {
         warn!("Gateway bind config warning (non-fatal): {}", e);
     }
 
     emit_progress("configuring-gateway", "Gateway configured", false, None);
 
     // ========== Stage 9: Restart gateway ==========
-    emit_progress("restarting-gateway", "Restarting gateway to apply changes...", false, None);
+    emit_progress(
+        "restarting-gateway",
+        "Restarting gateway to apply changes...",
+        false,
+        None,
+    );
 
     // Stop and start to pick up config changes - stop errors are non-fatal
-    if let Err(e) = state.docker_cli.compose_stop(&compose_path, &project_name).await {
+    if let Err(e) = state
+        .docker_cli
+        .compose_stop(&compose_path, &project_name)
+        .await
+    {
         warn!("Gateway stop warning (non-fatal): {}", e);
     }
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    if let Err(e) = state.docker_cli.compose_up(&compose_path, &project_name).await {
+    if let Err(e) = state
+        .docker_cli
+        .compose_up(&compose_path, &project_name)
+        .await
+    {
         let err_msg = emit_error("restarting-gateway", &e.to_string());
         state.build_tracker.unregister(&id).await;
         return Err(err_msg);
@@ -690,7 +783,15 @@ pub async fn build_instance(
     emit_progress("restarting-gateway", "Gateway restarted", false, None);
 
     // ========== Done! ==========
-    emit_progress("complete", &format!("Build complete! Gateway running at {}", config.gateway_url()), true, None);
+    emit_progress(
+        "complete",
+        &format!(
+            "Build complete! Gateway running at {}",
+            config.gateway_url()
+        ),
+        true,
+        None,
+    );
 
     // Unregister from build tracker
     state.build_tracker.unregister(&id).await;
@@ -701,10 +802,7 @@ pub async fn build_instance(
 
 /// Cancel an active build
 #[tauri::command]
-pub async fn cancel_build(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn cancel_build(id: String, state: State<'_, AppState>) -> Result<(), String> {
     info!("Cancelling build for instance {}", id);
 
     let cancelled = state.build_tracker.cancel(&id).await;
@@ -727,7 +825,10 @@ pub async fn connect_provider(
     fields: HashMap<String, String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    info!("Connecting provider {} for instance {}", auth_choice, instance_id);
+    info!(
+        "Connecting provider {} for instance {}",
+        auth_choice, instance_id
+    );
 
     // Get the instance config to find the container ID
     let config = state
@@ -743,6 +844,7 @@ pub async fn connect_provider(
         "openclaw".to_string(),
         "onboard".to_string(),
         "--non-interactive".to_string(),
+        "--accept-risk".to_string(),
         "--auth-choice".to_string(),
         auth_choice.clone(),
     ];
@@ -767,13 +869,16 @@ pub async fn connect_provider(
     let field_name_pattern = regex::Regex::new(r"^[a-z0-9-]+$").unwrap();
     for field_name in fields.keys() {
         if !field_name_pattern.is_match(field_name) {
-            return Err(format!("Invalid field name: '{}'. Field names must match pattern ^[a-z0-9-]+$", field_name));
+            return Err(format!(
+                "Invalid field name: '{}'. Field names must match pattern ^[a-z0-9-]+$",
+                field_name
+            ));
         }
     }
 
-    // Execute the command in the container
+    // Execute the onboard command in the container
     let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let _result = state
+    let _onboard_result = state
         .docker_cli
         .docker_exec(&container_name, &args_ref)
         .await
@@ -783,8 +888,30 @@ pub async fn connect_provider(
             err_msg
         })?;
 
-    // Log success without exposing any output that might contain sensitive data
-    info!("Provider {} connected successfully for instance {}", auth_choice, instance_id);
+    // Validate the connection by sending a test message (check exit code, not JSON)
+    let test_args = [
+        "openclaw",
+        "agent",
+        "--message",
+        "Testing connection. Reply with just the word 'OK'",
+        "--local",
+        "--agent",
+        "main",
+    ];
+    let _ = state
+        .docker_cli
+        .docker_exec(&container_name, &test_args)
+        .await
+        .map_err(|_| {
+            let err_msg = "Provider connection test failed: ensure your API key is valid and try again.".to_string();
+            warn!("{}", err_msg);
+            err_msg
+        })?;
+
+    info!(
+        "Provider {} connected and validated successfully for instance {}",
+        auth_choice, instance_id
+    );
 
     Ok(())
 }

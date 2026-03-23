@@ -27,19 +27,13 @@ pub fn allocate_ports(existing_instances: &[InstanceConfig]) -> Result<(u16, u16
     let mut bridge_port = DEFAULT_BRIDGE_PORT;
 
     // Collect all ports already in use by existing instances
-    let used_gateway_ports: Vec<u16> = existing_instances
-        .iter()
-        .map(|i| i.gateway_port)
-        .collect();
-    let used_bridge_ports: Vec<u16> = existing_instances
-        .iter()
-        .map(|i| i.bridge_port)
-        .collect();
+    let used_gateway_ports: Vec<u16> = existing_instances.iter().map(|i| i.gateway_port).collect();
+    let used_bridge_ports: Vec<u16> = existing_instances.iter().map(|i| i.bridge_port).collect();
 
     // Find available port pair
     for _ in 0..1000 {
-        let gateway_available = !used_gateway_ports.contains(&gateway_port)
-            && is_port_available(gateway_port);
+        let gateway_available =
+            !used_gateway_ports.contains(&gateway_port) && is_port_available(gateway_port);
         let bridge_available =
             !used_bridge_ports.contains(&bridge_port) && is_port_available(bridge_port);
 

@@ -1,24 +1,28 @@
 /**
- * Provider configuration for OutClaw wizard
- * Maps provider auth choices to their display info and required fields
+ * Provider configuration for the wizard connection form.
+ * Each provider defines the fields needed to connect via the OpenClaw CLI.
  */
 
 export interface ProviderField {
-	name: string; // e.g., "anthropic-api-key"
-	label: string; // e.g., "API Key"
-	secret: boolean; // whether to mask the input
+	name: string;
+	label: string;
+	secret: boolean;
 	placeholder?: string;
 	required?: boolean;
 	defaultValue?: string;
 }
 
 export interface ProviderConfig {
-	id: string; // matches --auth-choice value
-	label: string; // display name
-	description: string; // short description
+	id: string;
+	label: string;
+	description: string;
 	fields: ProviderField[];
 }
 
+/**
+ * All supported LLM providers.
+ * The `id` must match the --auth-choice value expected by the OpenClaw CLI.
+ */
 export const PROVIDERS: ProviderConfig[] = [
 	{
 		id: 'apiKey',
@@ -35,51 +39,9 @@ export const PROVIDERS: ProviderConfig[] = [
 		]
 	},
 	{
-		id: 'zai-api-key',
-		label: 'Z.ai',
-		description: 'Z.ai AI models',
-		fields: [
-			{
-				name: 'zai-api-key',
-				label: 'API Key',
-				secret: true,
-				placeholder: 'Enter your Z.ai API key',
-				required: true
-			}
-		]
-	},
-	{
-		id: 'gemini-api-key',
-		label: 'Google Gemini',
-		description: 'Google Gemini models',
-		fields: [
-			{
-				name: 'gemini-api-key',
-				label: 'API Key',
-				secret: true,
-				placeholder: 'Enter your Google AI API key',
-				required: true
-			}
-		]
-	},
-	{
-		id: 'mistral-api-key',
-		label: 'Mistral',
-		description: 'Mistral AI models',
-		fields: [
-			{
-				name: 'mistral-api-key',
-				label: 'API Key',
-				secret: true,
-				placeholder: 'Enter your Mistral API key',
-				required: true
-			}
-		]
-	},
-	{
 		id: 'openai-api-key',
 		label: 'OpenAI',
-		description: 'GPT and other OpenAI models',
+		description: 'GPT-4, GPT-3.5, and other OpenAI models',
 		fields: [
 			{
 				name: 'openai-api-key',
@@ -91,13 +53,55 @@ export const PROVIDERS: ProviderConfig[] = [
 		]
 	},
 	{
+		id: 'gemini-api-key',
+		label: 'Google Gemini',
+		description: 'Gemini Pro and other Google AI models',
+		fields: [
+			{
+				name: 'gemini-api-key',
+				label: 'API Key',
+				secret: true,
+				placeholder: 'AI...',
+				required: true
+			}
+		]
+	},
+	{
+		id: 'mistral-api-key',
+		label: 'Mistral',
+		description: 'Mistral and Mixtral models',
+		fields: [
+			{
+				name: 'mistral-api-key',
+				label: 'API Key',
+				secret: true,
+				placeholder: '...',
+				required: true
+			}
+		]
+	},
+	{
+		id: 'zai-api-key',
+		label: 'Z.ai',
+		description: 'Z.ai API models',
+		fields: [
+			{
+				name: 'zai-api-key',
+				label: 'API Key',
+				secret: true,
+				placeholder: '...',
+				required: true
+			}
+		]
+	},
+	{
 		id: 'openrouter-api-key',
 		label: 'OpenRouter',
-		description: 'Access multiple AI providers through one API',
+		description: 'Access multiple LLM providers through one API',
 		fields: [
 			{
 				name: 'token',
-				label: 'API Token',
+				label: 'API Key',
 				secret: true,
 				placeholder: 'sk-or-...',
 				required: true
@@ -106,8 +110,8 @@ export const PROVIDERS: ProviderConfig[] = [
 	},
 	{
 		id: 'custom-api-key',
-		label: 'Custom/OpenAI-compatible',
-		description: 'Connect to any OpenAI-compatible API',
+		label: 'Custom / OpenAI-compatible',
+		description: 'Any OpenAI-compatible API endpoint',
 		fields: [
 			{
 				name: 'custom-base-url',
@@ -120,22 +124,22 @@ export const PROVIDERS: ProviderConfig[] = [
 				name: 'custom-model-id',
 				label: 'Model ID',
 				secret: false,
-				placeholder: 'gpt-4 or custom-model',
+				placeholder: 'gpt-4',
 				required: true
 			},
 			{
 				name: 'custom-api-key',
 				label: 'API Key',
 				secret: true,
-				placeholder: 'Enter your API key',
+				placeholder: '...',
 				required: true
 			},
 			{
 				name: 'custom-provider-id',
 				label: 'Provider ID',
 				secret: false,
-				placeholder: 'my-custom-provider',
-				required: false
+				placeholder: 'my-provider',
+				required: true
 			},
 			{
 				name: 'custom-compatibility',
@@ -150,14 +154,14 @@ export const PROVIDERS: ProviderConfig[] = [
 ];
 
 /**
- * Get a provider config by ID
+ * Get a provider configuration by its ID.
  */
 export function getProviderById(id: string): ProviderConfig | undefined {
 	return PROVIDERS.find((p) => p.id === id);
 }
 
 /**
- * Get the default provider (Anthropic)
+ * Get the default provider (first in the list).
  */
 export function getDefaultProvider(): ProviderConfig {
 	return PROVIDERS[0];

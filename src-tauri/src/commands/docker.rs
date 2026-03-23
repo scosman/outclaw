@@ -36,9 +36,7 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
         .output()
         .await;
 
-    let compose_available = compose_check
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let compose_available = compose_check.map(|o| o.status.success()).unwrap_or(false);
 
     Ok(DockerStatus {
         state,
