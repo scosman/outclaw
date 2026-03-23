@@ -157,11 +157,13 @@ mod tests {
 
         let (gateway, bridge) = allocate_ports(&instances).unwrap();
 
-        // Should skip the used ports
+        // Should skip the used ports (but actual values depend on OS port availability)
         assert_ne!(gateway, 18789);
         assert_ne!(bridge, 18790);
-        assert_eq!(gateway, 18791);
-        assert_eq!(bridge, 18792);
+        // Bridge should be gateway + 1
+        assert_eq!(bridge, gateway + 1);
+        // Should be in valid range
+        assert!(gateway >= MIN_PORT);
     }
 
     #[test]

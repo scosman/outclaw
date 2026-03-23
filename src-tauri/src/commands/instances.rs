@@ -1037,3 +1037,99 @@ pub async fn connect_whatsapp(
         }
     }
 }
+
+/// Add Telegram channel to an instance with bot token
+/// Runs: openclaw channels add --channel telegram --token "TOKEN"
+#[tauri::command]
+pub async fn add_telegram_channel(
+    instance_id: String,
+    token: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("Adding Telegram channel for instance {}", instance_id);
+
+    // Get the instance config to find the container ID
+    let config = state
+        .instance_manager
+        .get(&instance_id)
+        .map_err(|e| e.to_string())?;
+
+    // Build the container name: outclaw-{containerId}-gateway
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+
+    // Execute the channels add command
+    let args = [
+        "openclaw",
+        "channels",
+        "add",
+        "--channel",
+        "telegram",
+        "--token",
+        &token,
+    ];
+
+    info!("Running docker exec to add Telegram channel");
+
+    state
+        .docker_cli
+        .docker_exec(&container_name, &args)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Failed to add Telegram channel: {}", e);
+            warn!("{}", err_msg);
+            err_msg
+        })?;
+
+    info!("Telegram channel added successfully for instance {}", instance_id);
+    Ok(())
+}
+
+/// Approve Telegram pairing code
+/// Runs: openclaw pairing approve telegram PAIRING_CODE
+#[tauri::command]
+pub async fn approve_telegram_pairing(
+    instance_id: String,
+    pairing_code: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!(
+        "Approving Telegram pairing for instance {}",
+        instance_id
+    );
+
+    // Get the instance config to find the container ID
+    let config = state
+        .instance_manager
+        .get(&instance_id)
+        .map_err(|e| e.to_string())?;
+
+    // Build the container name: outclaw-{containerId}-gateway
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+
+    // Execute the pairing approve command
+    let args = [
+        "openclaw",
+        "pairing",
+        "approve",
+        "telegram",
+        &pairing_code,
+    ];
+
+    info!("Running docker exec to approve Telegram pairing");
+
+    state
+        .docker_cli
+        .docker_exec(&container_name, &args)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Failed to approve Telegram pairing: {}", e);
+            warn!("{}", err_msg);
+            err_msg
+        })?;
+
+    info!(
+        "Telegram pairing approved successfully for instance {}",
+        instance_id
+    );
+    Ok(())
+}

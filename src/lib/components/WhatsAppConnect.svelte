@@ -202,7 +202,12 @@
 			<!-- Success State -->
 			<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
 				<div class="flex items-center gap-3">
-					<svg class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<svg
+						class="h-5 w-5 text-emerald-400"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"

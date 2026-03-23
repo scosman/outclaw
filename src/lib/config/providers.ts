@@ -1,7 +1,7 @@
 /**
  * Provider configuration for the wizard connection form.
  * Each provider defines the fields needed to connect via the OpenClaw CLI.
- * 
+ *
  * To update run `openclaw onboard --help` to see the available providers and fields, and use an agent to update this file.
  */
 

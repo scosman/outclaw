@@ -6,8 +6,8 @@
 	import { instancesStore } from '$lib/stores/instances.svelte';
 	import ConfigForm from '$lib/components/ConfigForm.svelte';
 	import BuildProgress from '$lib/components/BuildProgress.svelte';
-	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import WhatsAppConnect from '$lib/components/WhatsAppConnect.svelte';
+	import TelegramConnect from '$lib/components/TelegramConnect.svelte';
 	import StatusDot from '$lib/components/StatusDot.svelte';
 	import { PROVIDERS, getProviderById, getDefaultProvider } from '$lib/config/providers';
 	import type { InstanceWithStatus } from '$lib/types/instance';
@@ -77,13 +77,6 @@
 	// Computed step info
 	const stepNumber = $derived(wizardStore.stepNumber);
 	const totalSteps = $derived(wizardStore.totalSteps);
-
-	// CLI commands for channel setup
-	const telegramCommand = $derived(
-		wizardStore.createdInstanceConfig
-			? `docker exec outclaw-${wizardStore.createdInstanceConfig.container_id}-gateway openclaw mauth link telegram`
-			: ''
-	);
 
 	// Navigation handlers
 	function handleBack() {
@@ -439,9 +432,7 @@
 			<div class="mx-auto w-full max-w-2xl px-6 py-8">
 				<div class="mb-6 text-center">
 					<h2 class="mb-2 text-xl font-semibold text-zinc-100">Provider Setup</h2>
-					<p class="text-sm text-zinc-400">
-						Connect an AI provider to OpenClaw
-					</p>
+					<p class="text-sm text-zinc-400">Connect an AI provider to OpenClaw</p>
 				</div>
 
 				<div class="space-y-6">
@@ -449,7 +440,9 @@
 						<!-- Success State - Hide form, show success -->
 						<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6">
 							<div class="flex flex-col items-center gap-4 text-center">
-								<div class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
+								<div
+									class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20"
+								>
 									<svg
 										class="h-6 w-6 text-emerald-400"
 										fill="none"
@@ -478,7 +471,10 @@
 							<div class="space-y-4">
 								<!-- Provider Dropdown -->
 								<div>
-									<label for="provider-select" class="mb-1.5 block text-sm font-medium text-zinc-200">
+									<label
+										for="provider-select"
+										class="mb-1.5 block text-sm font-medium text-zinc-200"
+									>
 										Select Provider
 									</label>
 									<select
@@ -554,51 +550,51 @@
 										}
 									}}
 								>
-								{#if isConnecting}
-									<div
-										class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-									></div>
-									Connecting...
-								{:else}
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-										/>
-									</svg>
-									Connect Provider
-								{/if}
-							</button>
-						</div>
-					</div>
-
-					<!-- Info box -->
-					<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-						<div class="flex gap-3">
-							<svg
-								class="mt-0.5 h-5 w-5 flex-shrink-0 text-zinc-500"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<div class="text-sm text-zinc-400">
-								<p class="font-medium text-zinc-300">What is a provider?</p>
-								<p class="mt-1">
-									A provider connects your OpenClaw instance to an AI service like Anthropic Claude
-									or OpenAI. A provider is required for OpenClaw to function.
-								</p>
+									{#if isConnecting}
+										<div
+											class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+										></div>
+										Connecting...
+									{:else}
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+											/>
+										</svg>
+										Connect Provider
+									{/if}
+								</button>
 							</div>
 						</div>
-					</div>
+
+						<!-- Info box -->
+						<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+							<div class="flex gap-3">
+								<svg
+									class="mt-0.5 h-5 w-5 flex-shrink-0 text-zinc-500"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<div class="text-sm text-zinc-400">
+									<p class="font-medium text-zinc-300">What is a provider?</p>
+									<p class="mt-1">
+										A provider connects your OpenClaw instance to an AI service like Anthropic
+										Claude or OpenAI. A provider is required for OpenClaw to function.
+									</p>
+								</div>
+							</div>
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -616,12 +612,16 @@
 					<!-- Telegram Card -->
 					<button
 						type="button"
-						class="group flex w-full cursor-pointer items-start gap-4 rounded-lg border-2 {telegramConnected ? 'border-emerald-600 bg-emerald-500/5' : 'border-zinc-700'} p-4 text-left transition-all hover:border-zinc-600 hover:bg-zinc-800/50"
+						class="group flex w-full cursor-pointer items-start gap-4 rounded-lg border-2 {telegramConnected
+							? 'border-emerald-600 bg-emerald-500/5'
+							: 'border-zinc-700'} p-4 text-left transition-all hover:border-zinc-600 hover:bg-zinc-800/50"
 						onclick={() => (showTelegramDialog = true)}
 					>
 						<div class="relative">
 							<div
-								class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg {telegramConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}"
+								class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg {telegramConnected
+									? 'bg-emerald-500/20 text-emerald-400'
+									: 'bg-zinc-800 text-zinc-400'}"
 							>
 								<svg class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
 									<path
@@ -630,9 +630,21 @@
 								</svg>
 							</div>
 							{#if telegramConnected}
-								<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-									<svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+								<div
+									class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500"
+								>
+									<svg
+										class="h-3 w-3 text-white"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="3"
+											d="M5 13l4 4L19 7"
+										/>
 									</svg>
 								</div>
 							{/if}
@@ -654,20 +666,34 @@
 								{/if}
 							</p>
 						</div>
-						<svg class="h-5 w-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						<svg
+							class="h-5 w-5 text-zinc-500"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 5l7 7-7 7"
+							/>
 						</svg>
 					</button>
 
 					<!-- WhatsApp Card -->
 					<button
 						type="button"
-						class="group flex w-full cursor-pointer items-start gap-4 rounded-lg border-2 {whatsAppConnected ? 'border-emerald-600 bg-emerald-500/5' : 'border-zinc-700'} p-4 text-left transition-all hover:border-zinc-600 hover:bg-zinc-800/50"
+						class="group flex w-full cursor-pointer items-start gap-4 rounded-lg border-2 {whatsAppConnected
+							? 'border-emerald-600 bg-emerald-500/5'
+							: 'border-zinc-700'} p-4 text-left transition-all hover:border-zinc-600 hover:bg-zinc-800/50"
 						onclick={() => (showWhatsAppDialog = true)}
 					>
 						<div class="relative">
 							<div
-								class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg {whatsAppConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}"
+								class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg {whatsAppConnected
+									? 'bg-emerald-500/20 text-emerald-400'
+									: 'bg-zinc-800 text-zinc-400'}"
 							>
 								<svg class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
 									<path
@@ -676,9 +702,21 @@
 								</svg>
 							</div>
 							{#if whatsAppConnected}
-								<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-									<svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+								<div
+									class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500"
+								>
+									<svg
+										class="h-3 w-3 text-white"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="3"
+											d="M5 13l4 4L19 7"
+										/>
 									</svg>
 								</div>
 							{/if}
@@ -700,8 +738,18 @@
 								{/if}
 							</p>
 						</div>
-						<svg class="h-5 w-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						<svg
+							class="h-5 w-5 text-zinc-500"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 5l7 7-7 7"
+							/>
 						</svg>
 					</button>
 				</div>
@@ -709,18 +757,18 @@
 
 			<!-- Telegram Dialog -->
 			{#if showTelegramDialog}
-			<div
-				class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-				onclick={(e) => {
-					if (e.target === e.currentTarget) showTelegramDialog = false;
-				}}
-				onkeydown={(e) => {
-					if (e.key === 'Escape') showTelegramDialog = false;
-				}}
-				role="dialog"
-				aria-modal="true"
-				tabindex="-1"
-			>
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+					onclick={(e) => {
+						if (e.target === e.currentTarget) showTelegramDialog = false;
+					}}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') showTelegramDialog = false;
+					}}
+					role="dialog"
+					aria-modal="true"
+					tabindex="-1"
+				>
 					<div class="w-full max-w-lg rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
 						<div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
 							<div class="flex items-center gap-3">
@@ -737,8 +785,8 @@
 								type="button"
 								class="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
 								onclick={() => (showTelegramDialog = false)}
-                aria-label="Close"
-                tabindex="0"
+								aria-label="Close"
+								tabindex="0"
 							>
 								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path
@@ -751,13 +799,18 @@
 							</button>
 						</div>
 						<div class="p-4">
-							<p class="mb-4 text-sm text-zinc-400">
-								Run this command in your terminal to link your Telegram bot to your OpenClaw instance.
-							</p>
-							{#if telegramCommand}
-								<CodeBlock code={telegramCommand} language="bash" />
+							{#if wizardStore.createdInstanceId}
+								<TelegramConnect
+									instanceId={wizardStore.createdInstanceId}
+									onSuccess={() => {
+										telegramConnected = true;
+										showTelegramDialog = false;
+									}}
+								/>
 							{:else}
-								<div class="text-sm text-zinc-500">Instance not ready.</div>
+								<div class="py-4 text-center text-sm text-zinc-500">
+									Instance not ready. Please complete the build step first.
+								</div>
 							{/if}
 						</div>
 					</div>
@@ -766,18 +819,18 @@
 
 			<!-- WhatsApp Dialog -->
 			{#if showWhatsAppDialog}
-			<div
-				class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-				onclick={(e) => {
-					if (e.target === e.currentTarget) showWhatsAppDialog = false;
-				}}
-				onkeydown={(e) => {
-					if (e.key === 'Escape') showWhatsAppDialog = false;
-				}}
-				role="dialog"
-				aria-modal="true"
-				tabindex="-1"
-			>
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+					onclick={(e) => {
+						if (e.target === e.currentTarget) showWhatsAppDialog = false;
+					}}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') showWhatsAppDialog = false;
+					}}
+					role="dialog"
+					aria-modal="true"
+					tabindex="-1"
+				>
 					<div class="w-full max-w-2xl rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
 						<div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
 							<div class="flex items-center gap-3">
@@ -788,17 +841,17 @@
 										/>
 									</svg>
 								</div>
-                <div class="flex flex-col gap-1">
-								  <h3 class="font-medium text-zinc-100">Connect WhatsApp</h3>
-								  <div class="text-sm text-zinc-100">Be patient, this may take a few minutes</div>
-                </div>
+								<div class="flex flex-col gap-1">
+									<h3 class="font-medium text-zinc-100">Connect WhatsApp</h3>
+									<div class="text-sm text-zinc-100">Be patient, this may take a few minutes</div>
+								</div>
 							</div>
 							<button
 								type="button"
 								class="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
 								onclick={() => (showWhatsAppDialog = false)}
-                tabindex="0"
-                aria-label="Close"
+								tabindex="0"
+								aria-label="Close"
 							>
 								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path
@@ -832,17 +885,6 @@
 			<!-- Step 7: Completion Screen -->
 			<div class="mx-auto w-full max-w-2xl px-6 py-8">
 				<div class="space-y-8">
-					<!-- ASCII Art Logo -->
-					<div class="text-center">
-						<pre class="inline-block text-xs leading-tight text-emerald-500">
-  ____          _
- / __ \___  ___(_)___  _  __
-/ /_/ / _ \/ _ \ / _ \| |/_/
-\____/ .__/\___/_/\___/|_|
-    /_/
-						</pre>
-					</div>
-
 					<!-- Success Message -->
 					<div class="text-center">
 						<h2 class="mb-2 text-xl font-semibold text-zinc-100">Setup Complete!</h2>
