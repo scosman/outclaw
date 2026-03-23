@@ -435,7 +435,7 @@
 				<div class="mb-6 text-center">
 					<h2 class="mb-2 text-xl font-semibold text-zinc-100">Provider Setup</h2>
 					<p class="text-sm text-zinc-400">
-						Connect an AI provider to enable intelligent messaging capabilities
+						Connect an AI provider to OpenClaw
 					</p>
 				</div>
 
