@@ -2,7 +2,9 @@
 
 ## Automated Code Checks
 
-Run all automated checks with:
+Run all checks at once: `./checks.sh`
+
+Individual checks:
 
 - `npm run check` (svelte-check + TypeScript)
 - `npm run lint` (ESLint)
