@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use commands::instances::AppState;
 use poller::Poller;
+use tauri::Manager;
 
 pub use error::OutClawError;
 
@@ -18,21 +19,21 @@ pub fn run() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let app_state = Arc::new(AppState::new());
+    let app_state = AppState::new();
     let poller = Arc::new(Poller::new());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .manage(app_state.clone())
+        .manage(app_state)
         .setup(move |app| {
             // Start the status poller within Tauri's async runtime
             let app_handle = app.handle().clone();
             let poller_clone = poller.clone();
-            let state_clone = app_state.clone();
+            let state = app.state::<AppState>().inner().clone();
 
             tauri::async_runtime::spawn(async move {
-                poller_clone.start(app_handle, state_clone);
+                poller_clone.start(app_handle, Arc::new(state));
             });
 
             Ok(())

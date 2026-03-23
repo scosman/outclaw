@@ -10,6 +10,7 @@ use crate::instance::{
 };
 
 /// Shared state for the application
+#[derive(Clone)]
 pub struct AppState {
     pub instance_manager: Arc<InstanceManager>,
     pub docker_cli: Arc<DockerCli>,

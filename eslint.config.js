@@ -16,7 +16,8 @@ export default [
 				parser: ts.parser
 			},
 			globals: {
-				process: 'readonly'
+				process: 'readonly',
+				console: 'readonly'
 			}
 		}
 	},
