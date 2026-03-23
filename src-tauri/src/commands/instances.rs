@@ -371,13 +371,15 @@ pub async fn build_instance(
 
     // Helper to emit progress
     let emit_progress = |stage: &str, log: &str, done: bool, error: Option<&str>| {
-        let _ = app_handle.emit("build-progress", serde_json::json!({
+        if let Err(e) = app_handle.emit("build-progress", serde_json::json!({
             "id": id,
             "stage": stage,
             "log": log,
             "done": done,
             "error": error
-        }));
+        })) {
+            warn!("Failed to emit build progress: {}", e);
+        }
     };
 
     // Helper to emit and return error
@@ -390,7 +392,15 @@ pub async fn build_instance(
     emit_progress("fetching-dockerfile", "Fetching Dockerfile from GitHub...", false, None);
 
     // Get the release info to get the commit SHA
-    let releases_client = ReleasesClient::new().map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+    let releases_client = match ReleasesClient::new() {
+        Ok(client) => client,
+        Err(e) => {
+            let err_msg = emit_error("fetching-dockerfile", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
+    };
+
     let releases = match releases_client.get_releases().await {
         Ok(r) => r,
         Err(e) => {
@@ -411,11 +421,18 @@ pub async fn build_instance(
         });
 
     // Fetch Dockerfile from GitHub
-    let http_client = reqwest::Client::builder()
+    let http_client = match reqwest::Client::builder()
         .user_agent("OutClaw/0.1.0")
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+    {
+        Ok(client) => client,
+        Err(e) => {
+            let err_msg = emit_error("fetching-dockerfile", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
+    };
 
     let dockerfile_content = match fetch_dockerfile(&release, &docker_dir, &http_client).await {
         Ok(content) => {
@@ -432,23 +449,56 @@ pub async fn build_instance(
     };
 
     // Prepare build context
-    prepare_build_context(&dockerfile_content, &docker_dir)
-        .map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+    if let Err(e) = prepare_build_context(&dockerfile_content, &docker_dir) {
+        let err_msg = emit_error("fetching-dockerfile", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
-    check_cancelled()?;
+    if let Err(e) = check_cancelled() {
+        state.build_tracker.unregister(&id).await;
+        return Err(e);
+    }
 
     // ========== Stage 2: Generate configuration files ==========
     emit_progress("generating-config", "Generating docker-compose.yml and .env...", false, None);
 
-    let compose = generate_compose(&config).map_err(|e| emit_error("generating-config", &e.to_string()))?;
-    std::fs::write(&compose_path, &compose).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+    let compose = match generate_compose(&config) {
+        Ok(c) => c,
+        Err(e) => {
+            let err_msg = emit_error("generating-config", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
+    };
 
-    let env = generate_env(&config).map_err(|e| emit_error("generating-config", &e.to_string()))?;
-    std::fs::write(docker_dir.join(".env"), &env).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+    if let Err(e) = std::fs::write(&compose_path, &compose) {
+        let err_msg = emit_error("generating-config", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
+
+    let env = match generate_env(&config) {
+        Ok(e) => e,
+        Err(e) => {
+            let err_msg = emit_error("generating-config", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
+    };
+
+    if let Err(e) = std::fs::write(docker_dir.join(".env"), &env) {
+        let err_msg = emit_error("generating-config", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
     emit_progress("generating-config", "Configuration files generated", false, None);
 
-    check_cancelled()?;
+    if let Err(e) = check_cancelled() {
+        state.build_tracker.unregister(&id).await;
+        return Err(e);
+    }
 
     // ========== Stage 3: Build Docker image ==========
     emit_progress("building-image", "Building Docker image...", false, None);
@@ -481,42 +531,71 @@ pub async fn build_instance(
         emit_progress("building-image", &line, false, None);
     }
 
-    build_handle.await.map_err(|e| emit_error("building-image", &e.to_string()))?
-        .map_err(|e| emit_error("building-image", &e.to_string()))?;
+    if let Err(e) = build_handle.await {
+        let err_msg = emit_error("building-image", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
     emit_progress("building-image", "Docker image built successfully", false, None);
 
-    check_cancelled()?;
+    if let Err(e) = check_cancelled() {
+        state.build_tracker.unregister(&id).await;
+        return Err(e);
+    }
 
     // ========== Stage 4: Verify directories ==========
     emit_progress("verifying-directories", "Verifying directories...", false, None);
 
     // Ensure all directories exist
-    std::fs::create_dir_all(config.config_path()).map_err(|e| emit_error("verifying-directories", &e.to_string()))?;
-    std::fs::create_dir_all(config.workspace_path()).map_err(|e| emit_error("verifying-directories", &e.to_string()))?;
-    std::fs::create_dir_all(config.config_path().join("identity")).ok();
-    std::fs::create_dir_all(config.config_path().join("agents/main/agent")).ok();
-    std::fs::create_dir_all(config.config_path().join("agents/main/sessions")).ok();
+    if let Err(e) = std::fs::create_dir_all(config.config_path()) {
+        let err_msg = emit_error("verifying-directories", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
+
+    if let Err(e) = std::fs::create_dir_all(config.workspace_path()) {
+        let err_msg = emit_error("verifying-directories", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
+
+    // These subdirectories are optional - log warnings but don't fail
+    if let Err(e) = std::fs::create_dir_all(config.config_path().join("identity")) {
+        warn!("Failed to create identity directory: {}", e);
+    }
+    if let Err(e) = std::fs::create_dir_all(config.config_path().join("agents/main/agent")) {
+        warn!("Failed to create agents directory: {}", e);
+    }
+    if let Err(e) = std::fs::create_dir_all(config.config_path().join("agents/main/sessions")) {
+        warn!("Failed to create sessions directory: {}", e);
+    }
 
     emit_progress("verifying-directories", "Directories verified", false, None);
 
-    check_cancelled()?;
+    if let Err(e) = check_cancelled() {
+        state.build_tracker.unregister(&id).await;
+        return Err(e);
+    }
 
     // ========== Stage 5: Start container ==========
     emit_progress("starting-container", "Starting container...", false, None);
 
-    state
-        .docker_cli
-        .compose_up(&compose_path, &project_name)
-        .await
-        .map_err(|e| emit_error("starting-container", &e.to_string()))?;
+    if let Err(e) = state.docker_cli.compose_up(&compose_path, &project_name).await {
+        let err_msg = emit_error("starting-container", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
     // Wait a moment for container to be ready
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     emit_progress("starting-container", "Container started", false, None);
 
-    check_cancelled()?;
+    if let Err(e) = check_cancelled() {
+        state.build_tracker.unregister(&id).await;
+        return Err(e);
+    }
 
     // ========== Stage 6: Run onboarding ==========
     emit_progress("running-onboarding", "Running initial setup...", false, None);
@@ -535,7 +614,7 @@ pub async fn build_instance(
         }
         Err(e) => {
             // Onboarding might fail if already set up - log but continue
-            warn!("Onboarding warning: {}", e);
+            warn!("Onboarding warning (non-fatal): {}", e);
             emit_progress("running-onboarding", "Onboarding completed (may have been run before)", false, None);
         }
     }
@@ -555,7 +634,7 @@ pub async fn build_instance(
     match perm_result {
         Ok(_) => emit_progress("fixing-permissions", "Permissions fixed", false, None),
         Err(e) => {
-            warn!("Permission fix warning: {}", e);
+            warn!("Permission fix warning (non-fatal): {}", e);
             emit_progress("fixing-permissions", "Permissions check completed", false, None);
         }
     }
@@ -563,43 +642,49 @@ pub async fn build_instance(
     // ========== Stage 8: Configure gateway ==========
     emit_progress("configuring-gateway", "Configuring gateway settings...", false, None);
 
-    // Set gateway mode
+    // Set gateway mode - errors are non-fatal as CLI may not exist
     let gateway_mode = "local";
-    let _ = state.docker_cli.compose_run(
+    if let Err(e) = state.docker_cli.compose_run(
         &compose_path,
         &project_name,
         &format!("{}-cli", project_name),
         &["config", "set", "gateway.mode", gateway_mode],
         None,
-    ).await;
+    ).await {
+        warn!("Gateway mode config warning (non-fatal): {}", e);
+    }
 
     // Set gateway bind
     let bind_mode = match config.gateway_bind {
         crate::instance::GatewayBind::Loopback => "loopback",
         crate::instance::GatewayBind::Lan => "lan",
     };
-    let _ = state.docker_cli.compose_run(
+    if let Err(e) = state.docker_cli.compose_run(
         &compose_path,
         &project_name,
         &format!("{}-cli", project_name),
         &["config", "set", "gateway.bind", bind_mode],
         None,
-    ).await;
+    ).await {
+        warn!("Gateway bind config warning (non-fatal): {}", e);
+    }
 
     emit_progress("configuring-gateway", "Gateway configured", false, None);
 
     // ========== Stage 9: Restart gateway ==========
     emit_progress("restarting-gateway", "Restarting gateway to apply changes...", false, None);
 
-    // Stop and start to pick up config changes
-    let _ = state.docker_cli.compose_stop(&compose_path, &project_name).await;
+    // Stop and start to pick up config changes - stop errors are non-fatal
+    if let Err(e) = state.docker_cli.compose_stop(&compose_path, &project_name).await {
+        warn!("Gateway stop warning (non-fatal): {}", e);
+    }
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    state
-        .docker_cli
-        .compose_up(&compose_path, &project_name)
-        .await
-        .map_err(|e| emit_error("restarting-gateway", &e.to_string()))?;
+    if let Err(e) = state.docker_cli.compose_up(&compose_path, &project_name).await {
+        let err_msg = emit_error("restarting-gateway", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
     emit_progress("restarting-gateway", "Gateway restarted", false, None);
 

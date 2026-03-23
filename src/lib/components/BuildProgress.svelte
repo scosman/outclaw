@@ -56,6 +56,9 @@
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let logContainer: any = $state();
 
+	// Maximum number of log lines to keep
+	const MAX_LOG_LINES = 500;
+
 	// Auto-scroll logs to bottom
 	$effect(() => {
 		if (logContainer && logs.length > 0) {
@@ -92,9 +95,11 @@
 				}
 			}
 
-			// Add log line
+			// Add log line with max limit
 			if (payload.log) {
-				logs = [...logs, payload.log];
+				const newLogs = [...logs, payload.log];
+				// Keep only the last MAX_LOG_LINES
+				logs = newLogs.length > MAX_LOG_LINES ? newLogs.slice(-MAX_LOG_LINES) : newLogs;
 			}
 
 			// Handle completion
