@@ -292,12 +292,12 @@ OutClaw generates a Dockerfile and docker-compose.yml per instance. The generate
 
 ### Dockerfile Strategy
 
-OutClaw does **not** download or maintain a local copy of the OpenClaw source. Instead:
+The OpenClaw Dockerfile is a multi-stage build that `COPY`s the full source tree into the image — it cannot be built in isolation. OutClaw downloads the complete release source:
 
-1. **Fetch the base Dockerfile**: Download OpenClaw's published Dockerfile from GitHub at the selected release's commit hash/tag (e.g., `https://raw.githubusercontent.com/openclaw/openclaw/<tag>/Dockerfile`). The Dockerfile itself handles fetching and building OpenClaw internally.
+1. **Fetch the release source**: Download the release tarball from `https://github.com/openclaw/openclaw/archive/refs/tags/{tag}.tar.gz` and extract to `~/.outclaw/source-cache/{tag}/`. Cached per tag so multiple instances on the same version share the download.
 2. **Replace setup.sh logic**: The setup script's job (setting environment variables, generating docker-compose, writing .env) is replaced entirely by OutClaw's programmatic generation. We do not run or ship the setup script.
-3. **Apply build-time arguments**: Pass user-selected options as build args (`OPENCLAW_DOCKER_APT_PACKAGES`, `OPENCLAW_EXTENSIONS`, `OPENCLAW_INSTALL_DOCKER_CLI`, browser install) to the fetched Dockerfile.
-4. **Build context**: The fetched Dockerfile and any supporting files form the build context under `~/.outclaw/docker/<instance-id>/`.
+3. **Apply build-time arguments**: Pass user-selected options as build args (`OPENCLAW_DOCKER_APT_PACKAGES`, `OPENCLAW_EXTENSIONS`, `OPENCLAW_INSTALL_DOCKER_CLI`, browser install) to the Dockerfile in the cached source.
+4. **Build context**: The `source-cache/{tag}/` directory (containing the Dockerfile and all referenced source files) is the Docker build context. The per-instance `docker-containers/<containerId>/` directory holds only the generated docker-compose.yml and .env.
 
 ### docker-compose.yml Generation
 

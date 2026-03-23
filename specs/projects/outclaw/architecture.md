@@ -24,7 +24,7 @@ outclaw/
         mod.rs
         cli.rs                     ← execute docker/compose commands, parse output
         compose_gen.rs             ← generate docker-compose.yml
-        dockerfile_gen.rs          ← fetch + prepare Dockerfile
+        source.rs                  ← fetch + cache release source tarball
         env_gen.rs                 ← generate .env file
       instance/                    ← Instance data management
         mod.rs
@@ -130,7 +130,7 @@ interface Release {
 	name: string; // release title
 	publishedAt: string; // ISO 8601
 	prerelease: boolean;
-	commitSha: string; // for fetching Dockerfile at this version
+	commitSha: string; // target commit of the release
 }
 ```
 
@@ -273,21 +273,29 @@ impl DockerCli {
 - Errors: capture stderr, return as structured error messages
 - Timeouts: 30s for quick commands (inspect, ps), no timeout for build (can take minutes)
 
-### 4.2 Dockerfile Generator (`docker/dockerfile_gen.rs`)
+### 4.2 Release Source (`docker/source.rs`)
 
 ```rust
-pub async fn fetch_dockerfile(release: &Release) -> Result<String>
-pub fn prepare_build_context(instance: &InstanceConfig, dockerfile_content: &str, docker_dir: &Path) -> Result<()>
+pub async fn fetch_release_source(tag: &str) -> Result<PathBuf>
 ```
+
+The OpenClaw Dockerfile is a multi-stage build that `COPY`s the full source tree (extensions, package.json, patches, UI, etc.) into the image. Fetching just the Dockerfile is insufficient — we need the entire repository source at the release tag.
 
 **Fetch strategy:**
 
-1. Download `Dockerfile` from GitHub raw content at the release tag: `https://raw.githubusercontent.com/openclaw/openclaw/{tag}/Dockerfile`
-2. Cache downloaded Dockerfiles in `~/.outclaw/docker-containers/<containerId>/`
-3. If fetch fails, check cache — a cached Dockerfile from a previous build of the same version is reusable
+1. Check if `~/.outclaw/source-cache/{tag}/` already exists — if so, return immediately (cache hit)
+2. Download the release tarball: `https://github.com/openclaw/openclaw/archive/refs/tags/{tag}.tar.gz` (~50 MB compressed)
+3. Extract to a temporary directory, then rename to `~/.outclaw/source-cache/{tag}/`
+   - GitHub tarballs extract to a directory like `openclaw-{tag}/` — move its contents up so the Dockerfile is at `source-cache/{tag}/Dockerfile`
+4. If fetch fails and no cache exists, return an error
+
+**Caching:**
+- Source is cached per release tag — multiple instances on the same version share the cache
+- Cache is never automatically invalidated (tagged releases are immutable)
+- A future "clear cache" action in the settings UI can remove old entries
 
 **Build context:**
-The fetched Dockerfile and any supporting files are written to `~/.outclaw/docker-containers/<containerId>/`. This directory is the Docker build context. If the Dockerfile references local files (e.g., `COPY`), we may need to fetch those too — determine during implementation by inspecting the actual OpenClaw Dockerfile.
+The `source-cache/{tag}/` directory is used as the Docker build context. It contains the Dockerfile and all files it references. The `docker-containers/<containerId>/` directory holds only the generated docker-compose.yml and .env — it is not the build context.
 
 ### 4.3 Compose Generator (`docker/compose_gen.rs`)
 
@@ -356,7 +364,8 @@ impl InstanceManager {
    docker-containers/<containerId>/
    ```
 7. Write `instance.json` (includes `containerId` reference)
-8. Generate and write Dockerfile, docker-compose.yml, .env to `docker-containers/<containerId>/`
+8. Generate and write docker-compose.yml, .env to `docker-containers/<containerId>/`
+   (Dockerfile comes from the shared source cache — see §4.2)
 
 **delete() flow:**
 
@@ -502,9 +511,9 @@ The wizard is a single SvelteKit route that renders different step components ba
 The `build_instance` command orchestrates the full setup sequence. Each stage emits progress events.
 
 ```
-Stage 1: "Fetching Dockerfile"
-  → download Dockerfile from GitHub at release tag
-  → write to docker-containers/<containerId>/Dockerfile
+Stage 1: "Fetching release source"
+  → download release tarball from GitHub if not cached
+  → extract to ~/.outclaw/source-cache/{tag}/
 
 Stage 2: "Generating configuration"
   → generate docker-compose.yml → docker-containers/<containerId>/docker-compose.yml
@@ -512,7 +521,7 @@ Stage 2: "Generating configuration"
   → generate extra compose if needed
 
 Stage 3: "Building Docker image"
-  → docker build -t outclaw-<containerId>:latest --build-arg ... docker-containers/<containerId>/
+  → docker build -t outclaw-<containerId>:latest --build-arg ... ~/.outclaw/source-cache/{tag}/
   → stream output line by line
 
 Stage 4: "Creating directories"
@@ -677,10 +686,12 @@ npm run format:check  # Prettier
 | `tokio`                          | Async runtime (Tauri's default)                 |
 | `serde` + `serde_json`           | Serialization for instance configs, IPC         |
 | `serde_yaml`                     | docker-compose.yml generation                   |
-| `reqwest`                        | HTTP client for GitHub API, Dockerfile fetch    |
+| `reqwest`                        | HTTP client for GitHub API, release tarball fetch |
 | `rand`                           | Instance ID + name generation, token generation |
 | `thiserror`                      | Error type derivation                           |
 | `tracing` + `tracing-subscriber` | Structured logging                              |
+| `flate2`                         | Gzip decompression for release tarballs         |
+| `tar`                            | Tarball extraction for release source cache     |
 | `dirs`                           | Cross-platform home directory resolution        |
 
 ### Frontend (package.json)

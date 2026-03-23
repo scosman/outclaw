@@ -54,7 +54,7 @@ All Rust backend modules, data models, and Tauri command stubs. No frontend inte
 - Port allocator: auto-increment from 18789/18790, OS-level port check, validation
 - Docker CLI wrapper: `check_available`, `compose_up`, `compose_stop`, `compose_down`, `compose_run`, `build` (with streaming), `list_containers`, `inspect_container`, `remove_image`
 - GitHub releases client: fetch releases from API, cache to disk with TTL
-- Dockerfile generator: fetch from GitHub raw content by tag
+- Release source fetcher: download + cache release tarball by tag, extract to source-cache
 - Compose generator: produce docker-compose.yml via serde_yaml
 - Env generator: produce .env file
 - All Tauri commands registered (implemented where possible, stubbed where they need frontend integration)
@@ -121,7 +121,7 @@ The core build system. After this phase, you can create a fully running OpenClaw
 **Delivers:**
 
 - `build_instance` Tauri command: full 9-stage pipeline
-  - Stage 1: Fetch Dockerfile from GitHub
+  - Stage 1: Fetch release source tarball (download + extract if not cached)
   - Stage 2: Generate compose + env files
   - Stage 3: Docker build (stream output via events)
   - Stage 4: Create/verify directories
