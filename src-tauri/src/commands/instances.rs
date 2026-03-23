@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{mpsc, RwLock};
+use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
 use crate::docker::{fetch_release_source, generate_compose, generate_env, DockerCli};
@@ -887,6 +888,9 @@ pub async fn connect_provider(
             warn!("{}", err_msg);
             err_msg
         })?;
+
+    // Wait for credential restart to complete before testing connection
+    sleep(Duration::from_secs(5)).await;
 
     // Validate the connection by sending a test message (check exit code, not JSON)
     let test_args = [
