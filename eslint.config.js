@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import svelte from 'eslint-plugin-svelte';
+import globals from 'globals';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -16,6 +17,7 @@ export default [
 				parser: ts.parser
 			},
 			globals: {
+				...globals.browser,
 				process: 'readonly',
 				console: 'readonly'
 			}

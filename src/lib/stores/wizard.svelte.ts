@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { InstanceSettings, Release } from '$lib/types/instance';
+import type { InstanceSettings, Release, InstanceConfig } from '$lib/types/instance';
 
 // Wizard steps
 export type WizardStep = 'install-type' | 'config' | 'build' | 'provider' | 'channel' | 'complete';
@@ -57,6 +57,7 @@ let settings = $state<InstanceSettings>({
 let formErrors = $state<FormErrors>({});
 let buildState = $state<BuildState | null>(null);
 let createdInstanceId = $state<string | null>(null);
+let createdInstanceConfig = $state<InstanceConfig | null>(null);
 let releases = $state<Release[]>([]);
 let releasesLoading = $state(false);
 let generatedName = $state<string>('');
@@ -107,6 +108,7 @@ function reset() {
 	formErrors = {};
 	buildState = null;
 	createdInstanceId = null;
+	createdInstanceConfig = null;
 }
 
 // Initialize wizard data (fetch releases, generate name, get timezone)
@@ -229,8 +231,9 @@ async function createInstance(): Promise<string | null> {
 			allow_insecure_ws: settings.allow_insecure_ws
 		};
 
-		const config = await invoke<{ id: string }>('create_instance', { settings: finalSettings });
+		const config = await invoke<InstanceConfig>('create_instance', { settings: finalSettings });
 		createdInstanceId = config.id;
+		createdInstanceConfig = config;
 		return config.id;
 	} catch (error) {
 		console.error('Failed to create instance:', error);
@@ -305,6 +308,9 @@ export const wizardStore = {
 	},
 	get createdInstanceId() {
 		return createdInstanceId;
+	},
+	get createdInstanceConfig() {
+		return createdInstanceConfig;
 	},
 	get releases() {
 		return releases;
