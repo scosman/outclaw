@@ -531,13 +531,22 @@ pub async fn build_instance(
         emit_progress("building-image", &line, false, None);
     }
 
-    if let Err(e) = build_handle.await {
-        let err_msg = emit_error("building-image", &e.to_string());
-        state.build_tracker.unregister(&id).await;
-        return Err(err_msg);
+    // Wait for build to complete and check result
+    match build_handle.await {
+        Ok(Ok(())) => {
+            emit_progress("building-image", "Docker image built successfully", false, None);
+        }
+        Ok(Err(e)) => {
+            let err_msg = emit_error("building-image", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
+        Err(e) => {
+            let err_msg = emit_error("building-image", &e.to_string());
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
+        }
     }
-
-    emit_progress("building-image", "Docker image built successfully", false, None);
 
     if let Err(e) = check_cancelled() {
         state.build_tracker.unregister(&id).await;

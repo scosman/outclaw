@@ -70,7 +70,7 @@ pub async fn fetch_dockerfile(
 
 /// Prepare the Docker build context directory
 ///
-/// Writes the Dockerfile and any supporting files to the build context.
+/// Writes the Dockerfile and creates any required directories that the Dockerfile expects.
 pub fn prepare_build_context(
     dockerfile_content: &str,
     docker_dir: &Path,
@@ -82,6 +82,17 @@ pub fn prepare_build_context(
     let dockerfile_path = docker_dir.join("Dockerfile");
     std::fs::write(&dockerfile_path, dockerfile_content)?;
     debug!("Wrote Dockerfile to {:?}", dockerfile_path);
+
+    // Create directories that the OpenClaw Dockerfile expects
+    // These may be empty but need to exist for COPY commands
+    let patches_dir = docker_dir.join("patches");
+    let extensions_dir = docker_dir.join("extensions");
+
+    std::fs::create_dir_all(&patches_dir)?;
+    debug!("Created patches directory: {:?}", patches_dir);
+
+    std::fs::create_dir_all(&extensions_dir)?;
+    debug!("Created extensions directory: {:?}", extensions_dir);
 
     Ok(())
 }
