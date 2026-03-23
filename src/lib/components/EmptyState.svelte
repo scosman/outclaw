@@ -1,4 +1,6 @@
 <script lang="ts">
+	import WobbleCrab from '$lib/components/WobbleCrab.svelte';
+
 	interface Props {
 		showCreateButton?: boolean;
 	}
@@ -8,7 +10,9 @@
 
 <div class="flex h-full flex-col items-center justify-center">
 	<div class="text-center">
-		<img src="/logo.png" alt="OutClaw" class="mx-auto mb-1 h-32" />
+		<div class="mx-auto mb-1 h-32 w-32">
+			<WobbleCrab />
+		</div>
 
 		<p class="mb-2 text-lg font-medium text-zinc-300">No instances yet</p>
 		<p class="mb-6 text-sm text-zinc-500">Create your first OpenClaw instance to get started</p>
