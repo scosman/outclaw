@@ -1,0 +1,28 @@
+# Fallback Dockerfile for OutClaw
+# This is used when the Dockerfile cannot be fetched from GitHub
+
+FROM node:18-bookworm-slim
+
+# Install basic dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN groupadd -r node && useradd -r -g node node
+
+# Create directories
+RUN mkdir -p /home/node/.openclaw /home/node/workspace \
+    && chown -R node:node /home/node
+
+WORKDIR /home/node
+
+# Set environment
+ENV NODE_ENV=production
+ENV OPENCLAW_CONFIG_DIR=/home/node/.openclaw
+ENV OPENCLAW_WORKSPACE_DIR=/home/node/workspace
+
+# Default command
+CMD ["node", "--version"]

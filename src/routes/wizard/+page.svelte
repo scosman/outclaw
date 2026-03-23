@@ -3,11 +3,13 @@
 	import { goto } from '$app/navigation';
 	import { wizardStore } from '$lib/stores/wizard.svelte';
 	import ConfigForm from '$lib/components/ConfigForm.svelte';
-	import StatusDot from '$lib/components/StatusDot.svelte';
+	import BuildProgress from '$lib/components/BuildProgress.svelte';
 
 	let isLoading = $state(true);
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
+	let buildComplete = $state(false);
+	let buildError = $state<string | null>(null);
 
 	// Initialize wizard on mount
 	onMount(async () => {
@@ -297,64 +299,47 @@
 				{/if}
 			</div>
 		{:else if wizardStore.currentStep === 'build'}
-			<!-- Step 4: Build Progress (placeholder - full implementation in Phase 5) -->
+			<!-- Step 4: Build Progress -->
 			<div class="mx-auto w-full max-w-2xl px-6 py-8">
 				<div class="mb-6 text-center">
 					<h2 class="mb-2 text-xl font-semibold text-zinc-100">Building Instance</h2>
 					<p class="text-sm text-zinc-400">Setting up your OpenClaw instance...</p>
 				</div>
 
-				<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-					{#if wizardStore.buildState}
-						<!-- Build progress -->
-						<div class="space-y-4">
-							<!-- Stage indicator -->
-							<div class="flex items-center gap-3">
-								{#if wizardStore.buildState.error}
-									<StatusDot state="error" />
-								{:else if wizardStore.buildState.done}
-									<StatusDot state="running" />
-								{:else}
-									<div
-										class="h-2.5 w-2.5 animate-spin rounded-full border-2 border-zinc-700 border-t-emerald-500"
-									></div>
-								{/if}
-								<span class="text-sm font-medium text-zinc-200">
-									{wizardStore.buildState.stage || 'Starting...'}
-								</span>
-							</div>
-
-							<!-- Log output -->
-							<div class="max-h-64 overflow-auto rounded bg-zinc-800 p-3">
-								{#each wizardStore.buildState.logs as log, i (i)}
-									<pre class="whitespace-pre-wrap text-xs text-zinc-400">{log}</pre>
-								{/each}
-							</div>
-
-							{#if wizardStore.buildState.error}
-								<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-									<p class="text-sm font-medium text-red-400">Build Failed</p>
-									<p class="mt-1 text-xs text-red-400/80">{wizardStore.buildState.error}</p>
-								</div>
-							{:else if wizardStore.buildState.done}
-								<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-									<p class="text-sm font-medium text-emerald-400">Build Complete!</p>
-									<p class="mt-1 text-xs text-emerald-400/80">Your instance is ready to use.</p>
-								</div>
-							{/if}
+				{#if wizardStore.createdInstanceId}
+					<BuildProgress
+						instanceId={wizardStore.createdInstanceId}
+						onComplete={() => {
+							buildComplete = true;
+							buildError = null;
+						}}
+						onError={(err) => {
+							buildError = err;
+							buildComplete = true;
+						}}
+						onBackToSettings={() => {
+							buildComplete = false;
+							buildError = null;
+							wizardStore.goToStep('config');
+						}}
+						onRetry={() => {
+							buildComplete = false;
+							buildError = null;
+							wizardStore.startBuild().catch((e) => {
+								console.error('Build failed:', e);
+							});
+						}}
+					/>
+				{:else}
+					<div class="flex items-center justify-center py-8">
+						<div class="text-center">
+							<div
+								class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-700 border-t-emerald-500"
+							></div>
+							<p class="text-sm text-zinc-400">Preparing build...</p>
 						</div>
-					{:else}
-						<!-- Loading state -->
-						<div class="flex items-center justify-center py-8">
-							<div class="text-center">
-								<div
-									class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-700 border-t-emerald-500"
-								></div>
-								<p class="text-sm text-zinc-400">Starting build...</p>
-							</div>
-						</div>
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
 		{:else}
 			<!-- Future steps placeholder -->
@@ -375,7 +360,7 @@
 			<span class="mr-auto text-sm text-red-400">{error}</span>
 		{/if}
 
-		{#if wizardStore.currentStep === 'build' && wizardStore.buildState?.done && !wizardStore.buildState?.error}
+		{#if wizardStore.currentStep === 'build' && buildComplete && !buildError}
 			<button
 				type="button"
 				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
@@ -383,7 +368,15 @@
 			>
 				Go to Dashboard
 			</button>
-		{:else if ['install-type', 'config', 'build'].includes(wizardStore.currentStep)}
+		{:else if wizardStore.currentStep === 'build' && buildComplete && buildError}
+			<button
+				type="button"
+				class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+				onclick={() => wizardStore.goToStep('config')}
+			>
+				Back to Settings
+			</button>
+		{:else if ['install-type', 'config'].includes(wizardStore.currentStep)}
 			<button
 				type="button"
 				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -397,8 +390,6 @@
 						></div>
 						Creating...
 					</span>
-				{:else if wizardStore.currentStep === 'build'}
-					Continue
 				{:else}
 					Next
 				{/if}

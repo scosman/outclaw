@@ -164,6 +164,19 @@ impl DockerCli {
         args: &[&str],
         user: Option<&str>,
     ) -> Result<String> {
+        self.compose_run_with_entrypoint(compose_path, project_name, service, args, user, None).await
+    }
+
+    /// Run a command in a compose service container with optional entrypoint override
+    pub async fn compose_run_with_entrypoint(
+        &self,
+        compose_path: &Path,
+        project_name: &str,
+        service: &str,
+        args: &[&str],
+        user: Option<&str>,
+        entrypoint: Option<&str>,
+    ) -> Result<String> {
         info!("Running docker compose run for service {}", service);
 
         let mut cmd = Command::new(&self.docker_bin);
@@ -177,6 +190,10 @@ impl DockerCli {
 
         if let Some(u) = user {
             cmd.args(["--user", u]);
+        }
+
+        if let Some(e) = entrypoint {
+            cmd.args(["--entrypoint", e]);
         }
 
         cmd.arg(service);

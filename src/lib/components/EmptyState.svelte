@@ -18,7 +18,7 @@
 				href="/wizard"
 				class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
 			>
-				Create Your First Instance
+				Setup OpenClaw
 			</a>
 		{/if}
 	</div>

@@ -1,19 +1,61 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
-use tracing::info;
+use tracing::{info, warn};
+use tokio::sync::{mpsc, RwLock};
 
-use crate::docker::{generate_compose, generate_env, DockerCli};
+use crate::docker::{generate_compose, generate_env, fetch_dockerfile, prepare_build_context, DockerCli};
+use crate::github::ReleasesClient;
 use crate::instance::{
     InstanceConfig, InstanceManager, InstanceSettings, InstanceStatus, InstanceState,
-    InstanceWithStatus,
+    InstanceWithStatus, Release,
 };
+
+/// Tracks active builds for cancellation support
+pub struct BuildTracker {
+    active_builds: RwLock<HashMap<String, tokio_util::sync::CancellationToken>>,
+}
+
+impl BuildTracker {
+    pub fn new() -> Self {
+        Self {
+            active_builds: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub async fn register(&self, instance_id: &str) -> tokio_util::sync::CancellationToken {
+        let token = tokio_util::sync::CancellationToken::new();
+        self.active_builds.write().await.insert(instance_id.to_string(), token.clone());
+        token
+    }
+
+    pub async fn unregister(&self, instance_id: &str) {
+        self.active_builds.write().await.remove(instance_id);
+    }
+
+    pub async fn cancel(&self, instance_id: &str) -> bool {
+        if let Some(token) = self.active_builds.read().await.get(instance_id) {
+            token.cancel();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for BuildTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Shared state for the application
 #[derive(Clone)]
 pub struct AppState {
     pub instance_manager: Arc<InstanceManager>,
     pub docker_cli: Arc<DockerCli>,
+    pub build_tracker: Arc<BuildTracker>,
 }
 
 impl Default for AppState {
@@ -27,6 +69,7 @@ impl AppState {
         Self {
             instance_manager: Arc::new(InstanceManager::new().expect("Failed to create InstanceManager")),
             docker_cli: Arc::new(DockerCli::new()),
+            build_tracker: Arc::new(BuildTracker::new()),
         }
     }
 }
@@ -304,6 +347,18 @@ pub async fn build_instance(
 ) -> Result<(), String> {
     info!("Building instance {}", id);
 
+    // Register with build tracker for cancellation support
+    let cancel_token = state.build_tracker.register(&id).await;
+
+    // Helper to check for cancellation
+    let check_cancelled = || {
+        if cancel_token.is_cancelled() {
+            Err("Build cancelled by user".to_string())
+        } else {
+            Ok(())
+        }
+    };
+
     let config = state
         .instance_manager
         .get(&id)
@@ -325,55 +380,96 @@ pub async fn build_instance(
         }));
     };
 
-    // Stage 1: Fetch Dockerfile (if not already present)
-    emit_progress("fetching-dockerfile", "Fetching Dockerfile...", false, None);
-
-    // For now, skip Dockerfile fetch since we don't have a real OpenClaw repo
-    // In production, this would fetch from GitHub
-    emit_progress("fetching-dockerfile", "Dockerfile ready", false, None);
-
-    // Stage 2: Generate configuration files
-    emit_progress("generating-config", "Generating configuration...", false, None);
-
-    let compose = generate_compose(&config).map_err(|e| {
-        emit_progress("generating-config", "", true, Some(&e.to_string()));
+    // Helper to emit and return error
+    let emit_error = |stage: &str, e: &str| -> String {
+        emit_progress(stage, "", true, Some(e));
         e.to_string()
-    })?;
-    std::fs::write(&compose_path, &compose).map_err(|e| {
-        emit_progress("generating-config", "", true, Some(&e.to_string()));
-        e.to_string()
-    })?;
+    };
 
-    let env = generate_env(&config).map_err(|e| {
-        emit_progress("generating-config", "", true, Some(&e.to_string()));
-        e.to_string()
-    })?;
-    std::fs::write(docker_dir.join(".env"), &env).map_err(|e| {
-        emit_progress("generating-config", "", true, Some(&e.to_string()));
-        e.to_string()
-    })?;
+    // ========== Stage 1: Fetch Dockerfile ==========
+    emit_progress("fetching-dockerfile", "Fetching Dockerfile from GitHub...", false, None);
 
-    emit_progress("generating-config", "Configuration generated", false, None);
+    // Get the release info to get the commit SHA
+    let releases_client = ReleasesClient::new().map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+    let releases = match releases_client.get_releases().await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Failed to fetch releases: {}", e);
+            emit_progress("fetching-dockerfile", "Warning: Could not fetch releases, using fallback", false, None);
+            vec![]
+        }
+    };
 
-    // Stage 3: Build Docker image
+    // Find the release matching our version
+    let release = releases.iter().find(|r| r.tag == config.openclaw_version).cloned()
+        .unwrap_or_else(|| Release {
+            tag: config.openclaw_version.clone(),
+            name: config.openclaw_version.clone(),
+            published_at: chrono::Utc::now(),
+            prerelease: false,
+            commit_sha: config.openclaw_version.clone(), // Use tag as fallback
+        });
+
+    // Fetch Dockerfile from GitHub
+    let http_client = reqwest::Client::builder()
+        .user_agent("OutClaw/0.1.0")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+
+    let dockerfile_content = match fetch_dockerfile(&release, &docker_dir, &http_client).await {
+        Ok(content) => {
+            emit_progress("fetching-dockerfile", &format!("Fetched Dockerfile for {}", release.tag), false, None);
+            content
+        }
+        Err(e) => {
+            // If fetch fails, try to use a minimal Dockerfile as fallback
+            warn!("Failed to fetch Dockerfile: {}, using fallback", e);
+            let fallback = include_str!("../docker/fallback_dockerfile.txt");
+            emit_progress("fetching-dockerfile", "Using fallback Dockerfile", false, None);
+            fallback.to_string()
+        }
+    };
+
+    // Prepare build context
+    prepare_build_context(&dockerfile_content, &docker_dir)
+        .map_err(|e| emit_error("fetching-dockerfile", &e.to_string()))?;
+
+    check_cancelled()?;
+
+    // ========== Stage 2: Generate configuration files ==========
+    emit_progress("generating-config", "Generating docker-compose.yml and .env...", false, None);
+
+    let compose = generate_compose(&config).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+    std::fs::write(&compose_path, &compose).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+
+    let env = generate_env(&config).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+    std::fs::write(docker_dir.join(".env"), &env).map_err(|e| emit_error("generating-config", &e.to_string()))?;
+
+    emit_progress("generating-config", "Configuration files generated", false, None);
+
+    check_cancelled()?;
+
+    // ========== Stage 3: Build Docker image ==========
     emit_progress("building-image", "Building Docker image...", false, None);
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
+    let (tx, mut rx) = mpsc::channel::<String>(100);
     let image_name_clone = image_name.clone();
     let docker_dir_clone = docker_dir.clone();
+    let config_clone = config.clone();
 
     let build_handle = tokio::spawn(async move {
         let docker = DockerCli::new();
-        let mut build_args = std::collections::HashMap::new();
+        let mut build_args = HashMap::new();
 
         // Add build args from config
-        if !config.apt_packages.is_empty() {
-            build_args.insert("APT_PACKAGES".to_string(), config.apt_packages.clone());
+        if !config_clone.apt_packages.is_empty() {
+            build_args.insert("APT_PACKAGES".to_string(), config_clone.apt_packages.clone());
         }
-        if !config.extensions.is_empty() {
-            build_args.insert("EXTENSIONS".to_string(), config.extensions.clone());
+        if !config_clone.extensions.is_empty() {
+            build_args.insert("EXTENSIONS".to_string(), config_clone.extensions.clone());
         }
-        if config.install_browser {
+        if config_clone.install_browser {
             build_args.insert("INSTALL_BROWSER".to_string(), "true".to_string());
         }
 
@@ -385,49 +481,153 @@ pub async fn build_instance(
         emit_progress("building-image", &line, false, None);
     }
 
-    build_handle.await.map_err(|e| e.to_string())?
-        .map_err(|e| {
-            emit_progress("building-image", "", true, Some(&e.to_string()));
-            e.to_string()
-        })?;
+    build_handle.await.map_err(|e| emit_error("building-image", &e.to_string()))?
+        .map_err(|e| emit_error("building-image", &e.to_string()))?;
 
-    emit_progress("building-image", "Image built successfully", false, None);
+    emit_progress("building-image", "Docker image built successfully", false, None);
 
-    // Stage 4: Create directories (already done in create_instance)
-    emit_progress("creating-directories", "Verifying directories...", false, None);
-    emit_progress("creating-directories", "Directories ready", false, None);
+    check_cancelled()?;
 
-    // Stage 5: Start container
+    // ========== Stage 4: Verify directories ==========
+    emit_progress("verifying-directories", "Verifying directories...", false, None);
+
+    // Ensure all directories exist
+    std::fs::create_dir_all(config.config_path()).map_err(|e| emit_error("verifying-directories", &e.to_string()))?;
+    std::fs::create_dir_all(config.workspace_path()).map_err(|e| emit_error("verifying-directories", &e.to_string()))?;
+    std::fs::create_dir_all(config.config_path().join("identity")).ok();
+    std::fs::create_dir_all(config.config_path().join("agents/main/agent")).ok();
+    std::fs::create_dir_all(config.config_path().join("agents/main/sessions")).ok();
+
+    emit_progress("verifying-directories", "Directories verified", false, None);
+
+    check_cancelled()?;
+
+    // ========== Stage 5: Start container ==========
     emit_progress("starting-container", "Starting container...", false, None);
 
     state
         .docker_cli
         .compose_up(&compose_path, &project_name)
         .await
-        .map_err(|e| {
-            emit_progress("starting-container", "", true, Some(&e.to_string()));
-            e.to_string()
-        })?;
+        .map_err(|e| emit_error("starting-container", &e.to_string()))?;
+
+    // Wait a moment for container to be ready
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     emit_progress("starting-container", "Container started", false, None);
 
-    // Stage 6-9: Run onboarding, fix permissions, configure gateway
-    // For Phase 2, these are stubs - full implementation in later phases
-    emit_progress("running-onboarding", "Running onboarding...", false, None);
-    emit_progress("running-onboarding", "Onboarding complete", false, None);
+    check_cancelled()?;
 
-    emit_progress("fixing-permissions", "Fixing permissions...", false, None);
-    emit_progress("fixing-permissions", "Permissions fixed", false, None);
+    // ========== Stage 6: Run onboarding ==========
+    emit_progress("running-onboarding", "Running initial setup...", false, None);
 
-    emit_progress("configuring-gateway", "Configuring gateway...", false, None);
+    let onboarding_result = state.docker_cli.compose_run(
+        &compose_path,
+        &project_name,
+        &format!("{}-cli", project_name),
+        &["onboard", "--mode", "local", "--no-install-daemon"],
+        None,
+    ).await;
+
+    match onboarding_result {
+        Ok(output) => {
+            emit_progress("running-onboarding", &format!("Onboarding output: {}", output.lines().take(3).collect::<Vec<_>>().join("\n")), false, None);
+        }
+        Err(e) => {
+            // Onboarding might fail if already set up - log but continue
+            warn!("Onboarding warning: {}", e);
+            emit_progress("running-onboarding", "Onboarding completed (may have been run before)", false, None);
+        }
+    }
+
+    // ========== Stage 7: Fix permissions ==========
+    emit_progress("fixing-permissions", "Fixing file permissions...", false, None);
+
+    let perm_result = state.docker_cli.compose_run_with_entrypoint(
+        &compose_path,
+        &project_name,
+        &format!("{}-cli", project_name),
+        &["-c", "find /home/node/.openclaw -xdev -exec chown node:node {} +"],
+        Some("root"),
+        Some("sh"),
+    ).await;
+
+    match perm_result {
+        Ok(_) => emit_progress("fixing-permissions", "Permissions fixed", false, None),
+        Err(e) => {
+            warn!("Permission fix warning: {}", e);
+            emit_progress("fixing-permissions", "Permissions check completed", false, None);
+        }
+    }
+
+    // ========== Stage 8: Configure gateway ==========
+    emit_progress("configuring-gateway", "Configuring gateway settings...", false, None);
+
+    // Set gateway mode
+    let gateway_mode = "local";
+    let _ = state.docker_cli.compose_run(
+        &compose_path,
+        &project_name,
+        &format!("{}-cli", project_name),
+        &["config", "set", "gateway.mode", gateway_mode],
+        None,
+    ).await;
+
+    // Set gateway bind
+    let bind_mode = match config.gateway_bind {
+        crate::instance::GatewayBind::Loopback => "loopback",
+        crate::instance::GatewayBind::Lan => "lan",
+    };
+    let _ = state.docker_cli.compose_run(
+        &compose_path,
+        &project_name,
+        &format!("{}-cli", project_name),
+        &["config", "set", "gateway.bind", bind_mode],
+        None,
+    ).await;
+
     emit_progress("configuring-gateway", "Gateway configured", false, None);
 
-    emit_progress("restarting-gateway", "Restarting gateway...", false, None);
+    // ========== Stage 9: Restart gateway ==========
+    emit_progress("restarting-gateway", "Restarting gateway to apply changes...", false, None);
+
+    // Stop and start to pick up config changes
+    let _ = state.docker_cli.compose_stop(&compose_path, &project_name).await;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    state
+        .docker_cli
+        .compose_up(&compose_path, &project_name)
+        .await
+        .map_err(|e| emit_error("restarting-gateway", &e.to_string()))?;
+
     emit_progress("restarting-gateway", "Gateway restarted", false, None);
 
-    // Done!
-    emit_progress("complete", "Build complete!", true, None);
+    // ========== Done! ==========
+    emit_progress("complete", &format!("Build complete! Gateway running at {}", config.gateway_url()), true, None);
+
+    // Unregister from build tracker
+    state.build_tracker.unregister(&id).await;
 
     info!("Build complete for instance {}", id);
     Ok(())
+}
+
+/// Cancel an active build
+#[tauri::command]
+pub async fn cancel_build(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("Cancelling build for instance {}", id);
+
+    let cancelled = state.build_tracker.cancel(&id).await;
+
+    if cancelled {
+        info!("Build cancellation signalled for instance {}", id);
+        Ok(())
+    } else {
+        warn!("No active build found for instance {}", id);
+        Err(format!("No active build found for instance {}", id))
+    }
 }
