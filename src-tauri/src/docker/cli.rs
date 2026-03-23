@@ -348,6 +348,73 @@ impl DockerCli {
         debug!("Image removal completed");
         Ok(())
     }
+
+    /// Execute a command in a running container
+    /// Returns the stdout output on success
+    pub async fn docker_exec(&self, container_name: &str, args: &[&str]) -> Result<String> {
+        info!("Executing command in container: {} {:?}", container_name, args);
+
+        let mut cmd = Command::new(&self.docker_bin);
+        cmd.args([
+            "exec",
+            container_name,
+        ]);
+        cmd.args(args);
+
+        let output = cmd.output().await?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!("docker exec failed: {}", stderr);
+            return Err(OutClawError::DockerCommand(format!(
+                "docker exec failed: {}",
+                stderr
+            )));
+        }
+
+        debug!("docker exec completed successfully");
+        Ok(stdout)
+    }
+
+    /// Execute a command in a running container with environment variables
+    /// Returns the stdout output on success
+    pub async fn docker_exec_with_env(
+        &self,
+        container_name: &str,
+        args: &[&str],
+        env_vars: &[(String, String)],
+    ) -> Result<String> {
+        info!("Executing command in container with env: {} {:?}", container_name, args);
+
+        let mut cmd = Command::new(&self.docker_bin);
+        cmd.args(["exec"]);
+
+        // Add environment variables
+        for (key, value) in env_vars {
+            cmd.args(["-e", &format!("{}={}", key, value)]);
+        }
+
+        cmd.arg(container_name);
+        cmd.args(args);
+
+        let output = cmd.output().await?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!("docker exec failed: {}", stderr);
+            return Err(OutClawError::DockerCommand(format!(
+                "docker exec failed: {}",
+                stderr
+            )));
+        }
+
+        debug!("docker exec completed successfully");
+        Ok(stdout)
+    }
 }
 
 /// Container information from docker ps/inspect

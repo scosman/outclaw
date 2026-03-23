@@ -18,7 +18,7 @@
 		<span class="text-xs font-medium text-zinc-500">{language}</span>
 		<CopyButton text={code} />
 	</div>
-	<pre
-		class="overflow-x-auto p-3 font-mono text-sm text-zinc-300"
-	><code class="whitespace-pre-wrap break-all">{code}</code></pre>
+	<pre class="overflow-x-auto p-3 font-mono text-sm text-zinc-300"><code
+			class="whitespace-pre-wrap break-all">{code}</code
+		></pre>
 </div>

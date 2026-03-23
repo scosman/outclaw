@@ -8,6 +8,12 @@
 	import BuildProgress from '$lib/components/BuildProgress.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import StatusDot from '$lib/components/StatusDot.svelte';
+	import {
+		PROVIDERS,
+		getProviderById,
+		getDefaultProvider,
+		type ProviderConfig
+	} from '$lib/config/providers';
 	import type { InstanceWithStatus } from '$lib/types/instance';
 	import { getGatewayUrl, formatInstanceState } from '$lib/types/instance';
 
@@ -17,6 +23,37 @@
 	let buildComplete = $state(false);
 	let buildError = $state<string | null>(null);
 	let createdInstance = $state<InstanceWithStatus | null>(null);
+
+	// Provider connection state
+	let selectedProviderId = $state<string>(getDefaultProvider().id);
+	let providerFieldValues = $state<Record<string, string>>({});
+	let isConnecting = $state(false);
+	let connectionError = $state<string | null>(null);
+	let connectionSuccess = $state(false);
+
+	// Get the currently selected provider config
+	const selectedProvider = $derived(getProviderById(selectedProviderId) || getDefaultProvider());
+
+	// Check if all required fields are filled for the provider form
+	const isProviderFormValid = $derived(() => {
+		return selectedProvider.fields
+			.filter((f) => f.required !== false)
+			.every((f) => providerFieldValues[f.name]?.trim());
+	});
+
+	// Initialize provider field values when provider changes
+	$effect(() => {
+		if (selectedProviderId) {
+			const newValues: Record<string, string> = {};
+			const provider = getProviderById(selectedProviderId);
+			if (provider) {
+				for (const field of provider.fields) {
+					newValues[field.name] = field.defaultValue || '';
+				}
+			}
+			providerFieldValues = newValues;
+		}
+	});
 
 	// Initialize wizard on mount
 	onMount(() => {
@@ -36,22 +73,15 @@
 	const stepNumber = $derived(wizardStore.stepNumber);
 	const totalSteps = $derived(wizardStore.totalSteps);
 
-	// CLI commands for provider and channel setup
-	const providerCommand = $derived(
-		wizardStore.createdInstanceConfig
-			? `docker compose -f ~/.outclaw/docker-containers/${wizardStore.createdInstanceConfig.container_id}/docker-compose.yml run --rm outclaw-${wizardStore.createdInstanceConfig.container_id}-cli mauth register`
-			: ''
-	);
-
+	// CLI commands for channel setup
 	const telegramCommand = $derived(
 		wizardStore.createdInstanceConfig
-			? `docker compose -f ~/.outclaw/docker-containers/${wizardStore.createdInstanceConfig.container_id}/docker-compose.yml run --rm outclaw-${wizardStore.createdInstanceConfig.container_id}-cli mauth link telegram`
+			? `docker exec outclaw-${wizardStore.createdInstanceConfig.container_id}-gateway openclaw mauth link telegram`
 			: ''
 	);
-
 	const whatsappCommand = $derived(
 		wizardStore.createdInstanceConfig
-			? `docker compose -f ~/.outclaw/docker-containers/${wizardStore.createdInstanceConfig.container_id}/docker-compose.yml run --rm outclaw-${wizardStore.createdInstanceConfig.container_id}-cli mauth link whatsapp`
+			? `docker exec outclaw-${wizardStore.createdInstanceConfig.container_id}-gateway openclaw mauth link whatsapp`
 			: ''
 	);
 
@@ -410,23 +440,135 @@
 				<div class="mb-6 text-center">
 					<h2 class="mb-2 text-xl font-semibold text-zinc-100">Provider Setup</h2>
 					<p class="text-sm text-zinc-400">
-						Register your OpenClaw provider to enable messaging capabilities
+						Connect an AI provider to enable intelligent messaging capabilities
 					</p>
 				</div>
 
 				<div class="space-y-6">
-					<!-- Instructions -->
-					<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-						<p class="text-sm text-zinc-300">
-							Run the following command in your terminal to register your provider with the
-							OpenClaw network. This enables your instance to send and receive messages.
-						</p>
-					</div>
+					<!-- Provider Selection Form -->
+					<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+						<div class="space-y-4">
+							<!-- Provider Dropdown -->
+							<div>
+								<label for="provider-select" class="mb-1.5 block text-sm font-medium text-zinc-200">
+									Select Provider
+								</label>
+								<select
+									id="provider-select"
+									class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+									bind:value={selectedProviderId}
+									onchange={() => {
+										connectionError = null;
+										connectionSuccess = false;
+									}}
+								>
+									{#each PROVIDERS as provider (provider.id)}
+										<option value={provider.id}>{provider.label}</option>
+									{/each}
+								</select>
+								<p class="mt-1 text-xs text-zinc-500">{selectedProvider.description}</p>
+							</div>
 
-					<!-- Command -->
-					{#if providerCommand}
-						<CodeBlock code={providerCommand} language="bash" />
-					{/if}
+							<!-- Dynamic Fields -->
+							{#each selectedProvider.fields as field (field.name)}
+								<div>
+									<label for={field.name} class="mb-1.5 block text-sm font-medium text-zinc-200">
+										{field.label}
+										{#if field.required}
+											<span class="text-red-400">*</span>
+										{/if}
+									</label>
+									<input
+										id={field.name}
+										type={field.secret ? 'password' : 'text'}
+										class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+										placeholder={field.placeholder || ''}
+										bind:value={providerFieldValues[field.name]}
+										oninput={() => {
+											connectionError = null;
+										}}
+									/>
+								</div>
+							{/each}
+
+							<!-- Connection Error -->
+							{#if connectionError}
+								<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+									<p class="text-sm text-red-400">{connectionError}</p>
+								</div>
+							{/if}
+
+							<!-- Connection Success -->
+							{#if connectionSuccess}
+								<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+									<div class="flex items-center gap-2">
+										<svg
+											class="h-5 w-5 text-emerald-400"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+										<p class="text-sm text-emerald-400">Provider connected successfully!</p>
+									</div>
+								</div>
+							{/if}
+
+							<!-- Connect Button -->
+							<button
+								type="button"
+								class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={isConnecting || !isProviderFormValid()}
+								onclick={async () => {
+									if (!wizardStore.createdInstanceId) {
+										connectionError =
+											'No instance found. Please go back and create an instance first.';
+										return;
+									}
+
+									isConnecting = true;
+									connectionError = null;
+									connectionSuccess = false;
+
+									try {
+										await invoke('connect_provider', {
+											instanceId: wizardStore.createdInstanceId,
+											authChoice: selectedProviderId,
+											fields: providerFieldValues
+										});
+										connectionSuccess = true;
+									} catch (e) {
+										connectionError = `Failed to connect provider: ${e}`;
+									} finally {
+										isConnecting = false;
+									}
+								}}
+							>
+								{#if isConnecting}
+									<div
+										class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+									></div>
+									Connecting...
+								{:else}
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+										/>
+									</svg>
+									Connect Provider
+								{/if}
+							</button>
+						</div>
+					</div>
 
 					<!-- Info box -->
 					<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
@@ -445,10 +587,11 @@
 								/>
 							</svg>
 							<div class="text-sm text-zinc-400">
-								<p class="font-medium text-zinc-300">What is provider registration?</p>
+								<p class="font-medium text-zinc-300">What is a provider?</p>
 								<p class="mt-1">
-									Provider registration creates a unique identity for your OpenClaw instance. This
-									is required before you can link messaging channels like Telegram or WhatsApp.
+									A provider connects your OpenClaw instance to an AI service like Anthropic Claude
+									or OpenAI. This enables intelligent messaging capabilities. You can skip this step
+									and configure it later.
 								</p>
 							</div>
 						</div>
@@ -580,10 +723,7 @@
 								<div class="flex items-center justify-between">
 									<span class="text-sm text-zinc-500">Status</span>
 									<div class="flex items-center gap-2">
-										<StatusDot
-											state={createdInstance?.status?.state || 'running'}
-											size="sm"
-										/>
+										<StatusDot state={createdInstance?.status?.state || 'running'} size="sm" />
 										<span class="text-sm text-zinc-100"
 											>{createdInstance
 												? formatInstanceState(createdInstance.status.state)
@@ -671,13 +811,24 @@
 			>
 				Skip
 			</button>
-			<button
-				type="button"
-				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-				onclick={handleNext}
-			>
-				Done
-			</button>
+			{#if connectionSuccess}
+				<button
+					type="button"
+					class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+					onclick={handleNext}
+				>
+					Continue
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
+					disabled
+					title="Connect a provider first or skip"
+				>
+					Continue
+				</button>
+			{/if}
 		{:else if wizardStore.currentStep === 'channel'}
 			<button
 				type="button"

@@ -51,6 +51,7 @@ pub fn run() {
             commands::instances::restart_instance,
             commands::instances::build_instance,
             commands::instances::cancel_build,
+            commands::instances::connect_provider,
             commands::releases::get_releases,
             commands::system::get_system_timezone,
             commands::system::generate_instance_name,

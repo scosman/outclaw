@@ -717,3 +717,74 @@ pub async fn cancel_build(
         Err(format!("No active build found for instance {}", id))
     }
 }
+
+/// Connect a provider to an instance
+/// Runs the onboard command inside the gateway container with the provided credentials
+#[tauri::command]
+pub async fn connect_provider(
+    instance_id: String,
+    auth_choice: String,
+    fields: HashMap<String, String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("Connecting provider {} for instance {}", auth_choice, instance_id);
+
+    // Get the instance config to find the container ID
+    let config = state
+        .instance_manager
+        .get(&instance_id)
+        .map_err(|e| e.to_string())?;
+
+    // Build the container name: outclaw-{containerId}-gateway
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+
+    // Build the onboard command arguments
+    let mut args = vec![
+        "openclaw".to_string(),
+        "onboard".to_string(),
+        "--non-interactive".to_string(),
+        "--auth-choice".to_string(),
+        auth_choice.clone(),
+    ];
+
+    // Add field flags
+    for (field_name, value) in &fields {
+        if !value.is_empty() {
+            args.push(format!("--{}", field_name));
+            args.push(value.clone());
+        }
+    }
+
+    // Log only safe info - container name, auth choice, and field count (not values which may contain API keys)
+    info!(
+        "Running docker exec in {} for provider {} with {} field(s)",
+        container_name,
+        auth_choice,
+        fields.len()
+    );
+
+    // Validate field names to prevent unexpected behavior
+    let field_name_pattern = regex::Regex::new(r"^[a-z0-9-]+$").unwrap();
+    for field_name in fields.keys() {
+        if !field_name_pattern.is_match(field_name) {
+            return Err(format!("Invalid field name: '{}'. Field names must match pattern ^[a-z0-9-]+$", field_name));
+        }
+    }
+
+    // Execute the command in the container
+    let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let _result = state
+        .docker_cli
+        .docker_exec(&container_name, &args_ref)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Failed to connect provider: {}", e);
+            warn!("{}", err_msg);
+            err_msg
+        })?;
+
+    // Log success without exposing any output that might contain sensitive data
+    info!("Provider {} connected successfully for instance {}", auth_choice, instance_id);
+
+    Ok(())
+}
