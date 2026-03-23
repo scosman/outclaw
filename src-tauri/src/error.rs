@@ -36,6 +36,9 @@ pub enum OutClawError {
     #[error("Failed to fetch Dockerfile: {0}")]
     DockerfileFetch(String),
 
+    #[error("Failed to fetch source: {0}")]
+    SourceFetch(String),
+
     #[error("Build failed at stage '{stage}': {message}")]
     BuildFailed { stage: String, message: String },
 

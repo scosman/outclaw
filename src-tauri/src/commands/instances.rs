@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, State};
 use tracing::{info, warn};
 use tokio::sync::{mpsc, RwLock};
 
-use crate::docker::{generate_compose, generate_env, fetch_dockerfile, prepare_build_context, DockerCli};
+use crate::docker::{generate_compose, generate_env, fetch_release_source, DockerCli};
 use crate::github::ReleasesClient;
 use crate::instance::{
     InstanceConfig, InstanceManager, InstanceSettings, InstanceStatus, InstanceState,
@@ -388,14 +388,14 @@ pub async fn build_instance(
         e.to_string()
     };
 
-    // ========== Stage 1: Fetch Dockerfile ==========
-    emit_progress("fetching-dockerfile", "Fetching Dockerfile from GitHub...", false, None);
+    // ========== Stage 1: Fetch source ==========
+    emit_progress("fetching-source", "Fetching OpenClaw source from GitHub...", false, None);
 
-    // Get the release info to get the commit SHA
+    // Get the release info
     let releases_client = match ReleasesClient::new() {
         Ok(client) => client,
         Err(e) => {
-            let err_msg = emit_error("fetching-dockerfile", &e.to_string());
+            let err_msg = emit_error("fetching-source", &e.to_string());
             state.build_tracker.unregister(&id).await;
             return Err(err_msg);
         }
@@ -405,7 +405,7 @@ pub async fn build_instance(
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to fetch releases: {}", e);
-            emit_progress("fetching-dockerfile", "Warning: Could not fetch releases, using fallback", false, None);
+            emit_progress("fetching-source", "Warning: Could not fetch releases list, proceeding with version tag", false, None);
             vec![]
         }
     };
@@ -420,40 +420,31 @@ pub async fn build_instance(
             commit_sha: config.openclaw_version.clone(), // Use tag as fallback
         });
 
-    // Fetch Dockerfile from GitHub
+    // Fetch the full source tarball
     let http_client = match reqwest::Client::builder()
         .user_agent("OutClaw/0.1.0")
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(120)) // Longer timeout for tarball
         .build()
     {
         Ok(client) => client,
         Err(e) => {
-            let err_msg = emit_error("fetching-dockerfile", &e.to_string());
+            let err_msg = emit_error("fetching-source", &e.to_string());
             state.build_tracker.unregister(&id).await;
             return Err(err_msg);
         }
     };
 
-    let dockerfile_content = match fetch_dockerfile(&release, &docker_dir, &http_client).await {
-        Ok(content) => {
-            emit_progress("fetching-dockerfile", &format!("Fetched Dockerfile for {}", release.tag), false, None);
-            content
+    let source_dir = match fetch_release_source(&release, &docker_dir, &http_client).await {
+        Ok(path) => {
+            emit_progress("fetching-source", &format!("Source ready for {}", release.tag), false, None);
+            path
         }
         Err(e) => {
-            // If fetch fails, try to use a minimal Dockerfile as fallback
-            warn!("Failed to fetch Dockerfile: {}, using fallback", e);
-            let fallback = include_str!("../docker/fallback_dockerfile.txt");
-            emit_progress("fetching-dockerfile", "Using fallback Dockerfile", false, None);
-            fallback.to_string()
+            let err_msg = emit_error("fetching-source", &format!("Failed to fetch source: {}", e));
+            state.build_tracker.unregister(&id).await;
+            return Err(err_msg);
         }
     };
-
-    // Prepare build context
-    if let Err(e) = prepare_build_context(&dockerfile_content, &docker_dir) {
-        let err_msg = emit_error("fetching-dockerfile", &e.to_string());
-        state.build_tracker.unregister(&id).await;
-        return Err(err_msg);
-    }
 
     if let Err(e) = check_cancelled() {
         state.build_tracker.unregister(&id).await;
@@ -505,25 +496,26 @@ pub async fn build_instance(
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
     let image_name_clone = image_name.clone();
-    let docker_dir_clone = docker_dir.clone();
+    let source_dir_clone = source_dir.clone();
     let config_clone = config.clone();
 
     let build_handle = tokio::spawn(async move {
         let docker = DockerCli::new();
         let mut build_args = HashMap::new();
 
-        // Add build args from config
+        // Add build args from config - map to OpenClaw Dockerfile's expected args
         if !config_clone.apt_packages.is_empty() {
-            build_args.insert("APT_PACKAGES".to_string(), config_clone.apt_packages.clone());
+            build_args.insert("OPENCLAW_DOCKER_APT_PACKAGES".to_string(), config_clone.apt_packages.clone());
         }
         if !config_clone.extensions.is_empty() {
-            build_args.insert("EXTENSIONS".to_string(), config_clone.extensions.clone());
+            build_args.insert("OPENCLAW_EXTENSIONS".to_string(), config_clone.extensions.clone());
         }
         if config_clone.install_browser {
-            build_args.insert("INSTALL_BROWSER".to_string(), "true".to_string());
+            build_args.insert("OPENCLAW_INSTALL_BROWSER".to_string(), "1".to_string());
         }
 
-        docker.build(&docker_dir_clone, &image_name_clone, &build_args, tx).await
+        // Build using the source directory as context (contains Dockerfile)
+        docker.build(&source_dir_clone, &image_name_clone, &build_args, tx).await
     });
 
     // Forward build output

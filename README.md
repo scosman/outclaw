@@ -30,4 +30,3 @@ That's it. The wizard handles the rest — building the Docker image, configurin
 
 - macOS, Windows, or Linux
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-

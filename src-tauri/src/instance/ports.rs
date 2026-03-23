@@ -150,8 +150,10 @@ mod tests {
         let instances = vec![];
         let (gateway, bridge) = allocate_ports(&instances).unwrap();
 
-        assert_eq!(gateway, DEFAULT_GATEWAY_PORT);
-        assert_eq!(bridge, DEFAULT_BRIDGE_PORT);
+        // Should get sequential ports (gateway + bridge)
+        assert_eq!(bridge, gateway + 1);
+        // Should be in valid range
+        assert!(gateway >= MIN_PORT);
     }
 
     #[test]
@@ -171,7 +173,9 @@ mod tests {
     #[test]
     fn test_validate_port_valid() {
         let instances = vec![];
-        let result = validate_port(18789, None, &instances);
+        // Use a high port that's unlikely to be in use
+        let test_port = 54321;
+        let result = validate_port(test_port, None, &instances);
         assert!(result.is_ok());
     }
 

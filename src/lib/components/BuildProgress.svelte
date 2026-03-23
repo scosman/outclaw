@@ -35,7 +35,7 @@
 	}
 
 	let stages = $state<Stage[]>([
-		{ id: 'fetching-dockerfile', label: 'Fetching Dockerfile', status: 'pending' },
+		{ id: 'fetching-source', label: 'Fetching OpenClaw release', status: 'pending' },
 		{ id: 'generating-config', label: 'Generating configuration', status: 'pending' },
 		{ id: 'building-image', label: 'Building Docker image', status: 'pending' },
 		{ id: 'verifying-directories', label: 'Verifying directories', status: 'pending' },
@@ -200,7 +200,12 @@
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 9l-7 7-7-7"
+					/>
 				</svg>
 			</div>
 		</button>
@@ -239,7 +244,9 @@
 				</svg>
 				<div class="flex-1">
 					<p class="text-sm font-medium text-red-400">Build Failed</p>
-					<p class="mt-1 text-xs text-red-400/80">{errorMessage || 'An unexpected error occurred'}</p>
+					<p class="mt-1 text-xs text-red-400/80">
+						{errorMessage || 'An unexpected error occurred'}
+					</p>
 				</div>
 			</div>
 			<div class="mt-4 flex gap-2">
@@ -275,7 +282,9 @@
 				onclick={handleCancel}
 			>
 				{#if isCancelling}
-					<div class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300"></div>
+					<div
+						class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300"
+					></div>
 					<span>Cancelling...</span>
 				{:else}
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
