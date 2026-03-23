@@ -6,9 +6,13 @@
 	interface Props {
 		/** Instance ID to connect */
 		instanceId: string;
+		/** Callback when connection succeeds */
+		onSuccess?: () => void;
+		/** Callback when connection fails */
+		onError?: (error: string) => void;
 	}
 
-	let { instanceId }: Props = $props();
+	let { instanceId, onSuccess, onError }: Props = $props();
 
 	// WhatsApp progress event from backend
 	interface WhatsAppProgressEvent {
@@ -68,6 +72,9 @@
 				if (payload.error) {
 					hasError = true;
 					errorMessage = payload.error;
+					onError?.(payload.error);
+				} else {
+					onSuccess?.();
 				}
 			}
 		});

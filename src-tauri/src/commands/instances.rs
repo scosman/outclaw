@@ -1003,6 +1003,9 @@ pub async fn connect_whatsapp(
             .await
     });
 
+    // Drop the original sender so the channel closes when the task finishes
+    drop(tx);
+
     // Forward output to frontend
     while let Some(line) = rx.recv().await {
         emit_progress(&line, false, None);
