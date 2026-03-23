@@ -12,7 +12,7 @@ Setting up OpenClaw normally means cloning repos, editing config files, and runn
 
 - **Just click through a wizard.** OutClaw walks you through everything step by step — Docker setup, configuration, building, and connecting your AI provider and chat channels. No command line. No guesswork.
 
-- **Secure by default.** Auth tokens are generated automatically. The agent runs sandboxed inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first.
+- **Secure by default.** The agent runs sandboxed inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first.
 
 - **Run multiple agents side by side.** Each OpenClaw instance is fully isolated — its own config, its own container, its own workspace. Run one or five, update them independently.
 
@@ -21,7 +21,7 @@ Setting up OpenClaw normally means cloning repos, editing config files, and runn
 ## Getting Started
 
 1. **Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)** and make sure it's running.
-2. **Download OutClaw** for your platform from [Releases](https://github.com/scosman/easyclaw/releases).
+2. **Download OutClaw** for your platform from [Releases](https://github.com/scosman/outclaw/releases).
 3. **Launch OutClaw** and follow the setup wizard.
 
 That's it. The wizard handles the rest — building the Docker image, configuring OpenClaw, and connecting your AI provider.
@@ -31,6 +31,3 @@ That's it. The wizard handles the rest — building the Docker image, configurin
 - macOS, Windows, or Linux
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 
-## License
-
-MIT
