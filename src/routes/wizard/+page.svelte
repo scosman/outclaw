@@ -786,7 +786,7 @@
 								</div>
                 <div class="flex flex-col gap-1">
 								  <h3 class="font-medium text-zinc-100">Connect WhatsApp</h3>
-								  <h4 class="font-medium text-zinc-100">Be patient, this may take a few minutes</h4>
+								  <div class="text-sm text-zinc-100">Be patient, this may take a few minutes</div>
                 </div>
 							</div>
 							<button
