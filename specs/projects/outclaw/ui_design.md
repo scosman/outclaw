@@ -2,7 +2,7 @@
 status: complete
 ---
 
-# UI Design: EasyClaw
+# UI Design: OutClaw
 
 Desktop application UI built with SvelteKit + shadcn-svelte. Single-window app with simple view-based navigation. Dark theme, monospace typography, clean developer-tool aesthetic.
 
@@ -25,7 +25,7 @@ Desktop application UI built with SvelteKit + shadcn-svelte. Single-window app w
 ### Header Bar
 
 - Fixed at top, always visible (except during wizard flow, which is full-screen)
-- **Left**: App logo — "EasyClaw" in styled monospace, small ASCII art flourish (e.g., a claw mark `>///<` or similar). Keep it compact, not a full splash graphic.
+- **Left**: App logo — "OutClaw" in styled monospace, small ASCII art flourish (e.g., a claw mark `>///<` or similar). Keep it compact, not a full splash graphic.
 - **Right**: Docker status pill (green dot + "Running" / red dot + "Not Running" / yellow dot + "Not Installed"), settings gear icon
 - Height: ~48px. Subtle bottom border separating from content.
 - Background: slightly lighter than content area (shadcn `card` background or similar)
@@ -54,7 +54,7 @@ When Docker is not running or not installed, an overlay covers the content area 
 │                                      │
 │        🐳  Docker Required           │
 │                                      │
-│   EasyClaw needs Docker Desktop      │
+│   OutClaw needs Docker Desktop      │
 │   to run OpenClaw instances.         │
 │                                      │
 │   [ Download Docker Desktop ]        │
@@ -153,7 +153,7 @@ The default view when the app has at least one instance and Docker is running.
 │                                                  │
 │                                                  │
 │               >///<                              │
-│            EasyClaw                              │
+│            OutClaw                              │
 │                                                  │
 │     Manage OpenClaw instances with ease.         │
 │                                                  │
@@ -394,9 +394,9 @@ Scrollable form. Sections with headers.
 │  Run this command in a terminal to configure:    │
 │                                                  │
 │  ┌───────────────────────────────────────────┐   │
-│  │ docker compose -f ~/.easyclaw/docker/     │ 📋│
+│  │ docker compose -f ~/.outclaw/docker/     │ 📋│
 │  │ ec_a1b2c3/docker-compose.yml run --rm     │   │
-│  │ easyclaw-ec_a1b2c3-cli configure          │   │
+│  │ outclaw-ec_a1b2c3-cli configure          │   │
 │  └───────────────────────────────────────────┘   │
 │                                                  │
 │  This will walk you through selecting a          │
@@ -428,7 +428,7 @@ Scrollable form. Sections with headers.
 │  then run:                                       │
 │  ┌───────────────────────────────────────────┐   │
 │  │ docker compose -f ... run --rm            │ 📋│
-│  │ easyclaw-...-cli channels add             │   │
+│  │ outclaw-...-cli channels add             │   │
 │  │ --channel telegram --token <YOUR_TOKEN>   │   │
 │  └───────────────────────────────────────────┘   │
 │                                                  │
@@ -436,7 +436,7 @@ Scrollable form. Sections with headers.
 │  Run this command and scan the QR code:          │
 │  ┌───────────────────────────────────────────┐   │
 │  │ docker compose -f ... run --rm            │ 📋│
-│  │ easyclaw-...-cli channels login           │   │
+│  │ outclaw-...-cli channels login           │   │
 │  └───────────────────────────────────────────┘   │
 │                                                  │
 ├──────────────────────────────────────────────────┤
@@ -498,8 +498,8 @@ Navigated to from the instance list. Replaces the content area (header bar remai
 │  Bridge Port     18790                           │
 │  Network Access  Local only (localhost)          │
 │  Timezone        America/Toronto                 │
-│  Config Path     ~/.easyclaw/instances/ec_a1/... 📋│
-│  Workspace Path  ~/.easyclaw/instances/ec_a1/... 📋│
+│  Config Path     ~/.outclaw/instances/ec_a1/... 📋│
+│  Workspace Path  ~/.outclaw/instances/ec_a1/... 📋│
 │  Container ID    a1b2c3d4e5f6                 📋 │
 │                                                  │
 │  ── Actions ─────────────────────────────────    │
@@ -556,8 +556,8 @@ Minimal app-level settings. Opens as a modal dialog from the gear icon in the he
 
 Contents (V1):
 
-- **Data Directory**: shows `~/.easyclaw/` path (read-only, informational)
-- **About**: EasyClaw version, link to GitHub repo
+- **Data Directory**: shows `~/.outclaw/` path (read-only, informational)
+- **About**: OutClaw version, link to GitHub repo
 
 This is intentionally minimal. Per-instance settings live on the instance detail screen, not here.
 

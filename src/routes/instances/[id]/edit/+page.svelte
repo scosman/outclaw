@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>Edit Instance {instanceId} - EasyClaw</title>
+	<title>Edit Instance {instanceId} - OutClaw</title>
 </svelte:head>
 
 <div class="h-full p-6">

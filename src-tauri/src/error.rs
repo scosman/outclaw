@@ -2,7 +2,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum EasyClawError {
+pub enum OutClawError {
     #[error("Docker is not running")]
     DockerNotRunning,
 
@@ -52,7 +52,7 @@ pub enum EasyClawError {
     Other(String),
 }
 
-impl Serialize for EasyClawError {
+impl Serialize for OutClawError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -61,16 +61,16 @@ impl Serialize for EasyClawError {
     }
 }
 
-impl From<serde_json::Error> for EasyClawError {
+impl From<serde_json::Error> for OutClawError {
     fn from(e: serde_json::Error) -> Self {
-        EasyClawError::Serialization(e.to_string())
+        OutClawError::Serialization(e.to_string())
     }
 }
 
-impl From<serde_yaml::Error> for EasyClawError {
+impl From<serde_yaml::Error> for OutClawError {
     fn from(e: serde_yaml::Error) -> Self {
-        EasyClawError::Serialization(e.to_string())
+        OutClawError::Serialization(e.to_string())
     }
 }
 
-pub type Result<T> = std::result::Result<T, EasyClawError>;
+pub type Result<T> = std::result::Result<T, OutClawError>;

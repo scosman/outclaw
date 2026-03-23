@@ -41,25 +41,25 @@ pub struct InstanceConfig {
 }
 
 impl InstanceConfig {
-    /// Get the base EasyClaw directory
+    /// Get the base OutClaw directory
     ///
     /// # Panics
     /// Panics if the home directory cannot be determined. This should never happen
     /// on properly configured systems, but could occur in unusual environments.
-    pub fn easyclaw_dir() -> std::path::PathBuf {
+    pub fn outclaw_dir() -> std::path::PathBuf {
         dirs::home_dir()
             .expect("Cannot determine home directory - please ensure HOME environment variable is set")
-            .join(".easyclaw")
+            .join(".outclaw")
     }
 
-    /// Try to get the base EasyClaw directory, returning None if home dir is unavailable
-    pub fn try_easyclaw_dir() -> Option<std::path::PathBuf> {
-        dirs::home_dir().map(|p| p.join(".easyclaw"))
+    /// Try to get the base OutClaw directory, returning None if home dir is unavailable
+    pub fn try_outclaw_dir() -> Option<std::path::PathBuf> {
+        dirs::home_dir().map(|p| p.join(".outclaw"))
     }
 
     /// Get the config directory path for this instance
     pub fn config_path(&self) -> std::path::PathBuf {
-        Self::easyclaw_dir()
+        Self::outclaw_dir()
             .join("instances")
             .join(&self.id)
             .join("config")
@@ -67,7 +67,7 @@ impl InstanceConfig {
 
     /// Get the workspace directory path for this instance
     pub fn workspace_path(&self) -> std::path::PathBuf {
-        Self::easyclaw_dir()
+        Self::outclaw_dir()
             .join("instances")
             .join(&self.id)
             .join("workspace")
@@ -75,7 +75,7 @@ impl InstanceConfig {
 
     /// Get the docker directory path for this instance's container
     pub fn docker_path(&self) -> std::path::PathBuf {
-        Self::easyclaw_dir()
+        Self::outclaw_dir()
             .join("docker-containers")
             .join(&self.container_id)
     }

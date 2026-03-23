@@ -121,7 +121,7 @@ async fn get_instance_status(
     _container_id: &str,
 ) -> InstanceStatus {
     // Try to find the container by label
-    match docker_cli.list_containers(&format!("easyclaw.instance={}", instance_id)).await {
+    match docker_cli.list_containers(&format!("outclaw.instance={}", instance_id)).await {
         Ok(containers) => {
             if let Some(container) = containers.first() {
                 InstanceStatus {

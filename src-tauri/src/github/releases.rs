@@ -6,7 +6,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::error::{EasyClawError, Result};
+use crate::error::{OutClawError, Result};
 use crate::instance::Release;
 
 const GITHUB_API_URL: &str = "https://api.github.com/repos";
@@ -22,13 +22,13 @@ pub struct ReleasesClient {
 impl ReleasesClient {
     /// Create a new releases client
     pub fn new() -> Result<Self> {
-        let cache_path = InstanceConfig::easyclaw_dir().join("releases-cache.json");
+        let cache_path = InstanceConfig::outclaw_dir().join("releases-cache.json");
 
         let client = Client::builder()
-            .user_agent("EasyClaw/0.1.0")
+            .user_agent("OutClaw/0.1.0")
             .timeout(Duration::from_secs(10))
             .build()
-            .map_err(|e| EasyClawError::Network(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| OutClawError::Network(format!("Failed to create HTTP client: {}", e)))?;
 
         Ok(Self { cache_path, client })
     }
@@ -75,10 +75,10 @@ impl ReleasesClient {
             .header("Accept", "application/vnd.github+json")
             .send()
             .await
-            .map_err(|e| EasyClawError::GitHubApi(format!("Request failed: {}", e)))?;
+            .map_err(|e| OutClawError::GitHubApi(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(EasyClawError::GitHubApi(format!(
+            return Err(OutClawError::GitHubApi(format!(
                 "GitHub API returned status {}",
                 response.status()
             )));
@@ -87,7 +87,7 @@ impl ReleasesClient {
         let github_releases: Vec<GitHubRelease> = response
             .json()
             .await
-            .map_err(|e| EasyClawError::GitHubApi(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| OutClawError::GitHubApi(format!("Failed to parse response: {}", e)))?;
 
         // Convert to our Release type
         // Note: We'd need to fetch commit SHA from the tag in a real implementation

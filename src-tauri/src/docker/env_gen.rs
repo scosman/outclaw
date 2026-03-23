@@ -8,7 +8,7 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
     let mut lines = Vec::new();
 
     // Core settings
-    lines.push("# EasyClaw Instance Configuration".to_string());
+    lines.push("# OutClaw Instance Configuration".to_string());
     lines.push(format!("# Instance: {} ({})", config.name, config.id));
     lines.push(format!("# Generated: {}", config.updated_at.to_rfc3339()));
     lines.push(String::new());
@@ -53,9 +53,9 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
         lines.push("OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=true".to_string());
     }
 
-    // Fixed settings managed by EasyClaw
+    // Fixed settings managed by OutClaw
     lines.push(String::new());
-    lines.push("# Settings managed by EasyClaw".to_string());
+    lines.push("# Settings managed by OutClaw".to_string());
     lines.push("OPENCLAW_CONFIG_DIR=/home/node/.openclaw".to_string());
     lines.push("OPENCLAW_WORKSPACE_DIR=/home/node/workspace".to_string());
 

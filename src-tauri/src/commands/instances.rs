@@ -60,7 +60,7 @@ pub async fn list_instances(
             }
         } else {
             // Query Docker for actual container status
-            match state.docker_cli.list_containers(&format!("easyclaw.instance={}", config.id)).await {
+            match state.docker_cli.list_containers(&format!("outclaw.instance={}", config.id)).await {
                 Ok(containers) => {
                     if let Some(container) = containers.first() {
                         InstanceStatus {
@@ -206,13 +206,13 @@ pub async fn delete_instance(
     if let Some(ref cfg) = config {
         let docker_dir = cfg.docker_path();
         let compose_path = docker_dir.join("docker-compose.yml");
-        let project_name = format!("easyclaw-{}", cfg.container_id);
+        let project_name = format!("outclaw-{}", cfg.container_id);
 
         // Stop container
         let _ = state.docker_cli.compose_down(&compose_path, &project_name).await;
 
         // Remove image
-        let image_name = format!("easyclaw-{}:latest", cfg.container_id);
+        let image_name = format!("outclaw-{}:latest", cfg.container_id);
         let _ = state.docker_cli.remove_image(&image_name).await;
     }
 
@@ -241,7 +241,7 @@ pub async fn start_instance(
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
-    let project_name = format!("easyclaw-{}", config.container_id);
+    let project_name = format!("outclaw-{}", config.container_id);
 
     state
         .docker_cli
@@ -268,7 +268,7 @@ pub async fn stop_instance(
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
-    let project_name = format!("easyclaw-{}", config.container_id);
+    let project_name = format!("outclaw-{}", config.container_id);
 
     state
         .docker_cli
@@ -310,7 +310,7 @@ pub async fn build_instance(
 
     let docker_dir = config.docker_path();
     let compose_path = docker_dir.join("docker-compose.yml");
-    let project_name = format!("easyclaw-{}", config.container_id);
+    let project_name = format!("outclaw-{}", config.container_id);
     let image_name = format!("{}:latest", project_name);
 
     // Helper to emit progress

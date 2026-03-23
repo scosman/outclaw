@@ -5,7 +5,7 @@ use chrono::Utc;
 use rand::Rng;
 use tracing::{debug, info, warn};
 
-use crate::error::{EasyClawError, Result};
+use crate::error::{OutClawError, Result};
 use crate::instance::{
     generate_name, allocate_ports, validate_port,
     InstanceConfig, InstanceSettings,
@@ -20,13 +20,13 @@ impl InstanceManager {
     /// Create a new instance manager
     pub fn new() -> Result<Self> {
         let base_dir = dirs::home_dir()
-            .ok_or_else(|| EasyClawError::Other("Cannot determine home directory".to_string()))?
-            .join(".easyclaw");
+            .ok_or_else(|| OutClawError::Other("Cannot determine home directory".to_string()))?
+            .join(".outclaw");
 
         // Ensure base directory exists
         fs::create_dir_all(&base_dir).map_err(|e| {
-            EasyClawError::Io(std::io::Error::other(
-                format!("Failed to create .easyclaw directory: {}", e),
+            OutClawError::Io(std::io::Error::other(
+                format!("Failed to create .outclaw directory: {}", e),
             ))
         })?;
 
@@ -96,7 +96,7 @@ impl InstanceManager {
         let config_path = self.instances_dir().join(id).join("instance.json");
 
         if !config_path.exists() {
-            return Err(EasyClawError::InstanceNotFound(id.to_string()));
+            return Err(OutClawError::InstanceNotFound(id.to_string()));
         }
 
         let content = fs::read_to_string(&config_path)?;
@@ -117,7 +117,7 @@ impl InstanceManager {
         let name = match settings.name {
             Some(ref n) if !n.is_empty() => {
                 if existing_names.contains(n) {
-                    return Err(EasyClawError::InstanceAlreadyExists(n.clone()));
+                    return Err(OutClawError::InstanceAlreadyExists(n.clone()));
                 }
                 n.clone()
             }
@@ -192,7 +192,7 @@ impl InstanceManager {
                     .map(|i| i.name.clone())
                     .collect();
                 if existing_names.contains(name) {
-                    return Err(EasyClawError::InstanceAlreadyExists(name.clone()));
+                    return Err(OutClawError::InstanceAlreadyExists(name.clone()));
                 }
                 config.name = name.clone();
             }
@@ -242,7 +242,7 @@ impl InstanceManager {
             .collect();
 
         if existing_names.contains(&new_name.to_string()) {
-            return Err(EasyClawError::InstanceAlreadyExists(new_name.to_string()));
+            return Err(OutClawError::InstanceAlreadyExists(new_name.to_string()));
         }
 
         let mut config = self.get(id)?;

@@ -1,4 +1,4 @@
-# EasyClaw — Agent Guidelines
+# OutClaw — Agent Guidelines
 
 ## Automated Code Checks
 
@@ -21,5 +21,5 @@ Individual checks:
 
 ## Project Context
 
-EasyClaw is a desktop app (Tauri) for managing OpenClaw Docker instances.
-See /specs/projects/easyclaw/ for full specifications.
+OutClaw is a desktop app (Tauri) for managing OpenClaw Docker instances.
+See /specs/projects/outclaw/ for full specifications.

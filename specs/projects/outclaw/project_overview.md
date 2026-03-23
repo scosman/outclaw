@@ -2,7 +2,7 @@
 status: complete
 ---
 
-# Project: EasyClaw
+# Project: OutClaw
 
 I want build a visual app for setting up and running OpenClaw inside a docker container. Context: OpenClaw is a personal agent system, which can be run in docker.
 
@@ -59,7 +59,7 @@ They publish a setup script that walks users through `specs/references/setup.sh`
 ### Settings
 
 - Config directory: we manage completely
-  - `~/.easyclaw` is our root directory, all of our app data is saved here (including openclaw data like config and workspace).
+  - `~/.outclaw` is our root directory, all of our app data is saved here (including openclaw data like config and workspace).
   - Don’t mount this root ever, use sub-folders. We want to be able to save non-mounted data (config backups, docker images, etc). See instances/versions above.
 
 ### Resolved: Provider & Chat Setup Approach

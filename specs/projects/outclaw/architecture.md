@@ -2,14 +2,14 @@
 status: complete
 ---
 
-# Architecture: EasyClaw
+# Architecture: OutClaw
 
 Tauri desktop application. Rust backend manages Docker and the filesystem; SvelteKit frontend renders the UI. Communication via Tauri's IPC (commands + events).
 
 ## 1. Project Structure
 
 ```
-easyclaw/
+outclaw/
   src-tauri/                       ← Rust backend (Tauri)
     src/
       main.rs                      ← entry point, plugin registration
@@ -92,7 +92,7 @@ interface InstanceConfig {
 	id: string; // "ec_a1b2c3" — generated, filesystem-safe
 	name: string; // "Cosmic Otter" — user-facing
 	openclawVersion: string; // GitHub release tag, e.g., "v0.42.1"
-	containerId: string; // references a container in ~/.easyclaw/docker-containers/<containerId>/
+	containerId: string; // references a container in ~/.outclaw/docker-containers/<containerId>/
 	gatewayPort: number;
 	bridgePort: number;
 	gatewayBind: 'loopback' | 'lan';
@@ -109,7 +109,7 @@ interface InstanceConfig {
 }
 ```
 
-Serialized as JSON to `~/.easyclaw/instances/<id>/instance.json`. The Rust backend owns all reads/writes; the frontend never touches the filesystem directly.
+Serialized as JSON to `~/.outclaw/instances/<id>/instance.json`. The Rust backend owns all reads/writes; the frontend never touches the filesystem directly.
 
 ### Runtime-Only (Not Persisted)
 
@@ -144,7 +144,7 @@ interface AppState {
 }
 ```
 
-Stored at `~/.easyclaw/app-state.json`. Read on launch, written on window close/move.
+Stored at `~/.outclaw/app-state.json`. Read on launch, written on window close/move.
 
 ## 3. IPC Design (Tauri Commands + Events)
 
@@ -269,7 +269,7 @@ impl DockerCli {
 
 - Commands run via `tokio::process::Command` for async execution
 - Build output streamed line-by-line via a channel, forwarded as Tauri events
-- Container listing uses `docker ps --filter label=easyclaw.container --format json` — we label all containers with both container and instance IDs
+- Container listing uses `docker ps --filter label=outclaw.container --format json` — we label all containers with both container and instance IDs
 - Errors: capture stderr, return as structured error messages
 - Timeouts: 30s for quick commands (inspect, ps), no timeout for build (can take minutes)
 
@@ -283,11 +283,11 @@ pub fn prepare_build_context(instance: &InstanceConfig, dockerfile_content: &str
 **Fetch strategy:**
 
 1. Download `Dockerfile` from GitHub raw content at the release tag: `https://raw.githubusercontent.com/openclaw/openclaw/{tag}/Dockerfile`
-2. Cache downloaded Dockerfiles in `~/.easyclaw/docker-containers/<containerId>/`
+2. Cache downloaded Dockerfiles in `~/.outclaw/docker-containers/<containerId>/`
 3. If fetch fails, check cache — a cached Dockerfile from a previous build of the same version is reusable
 
 **Build context:**
-The fetched Dockerfile and any supporting files are written to `~/.easyclaw/docker-containers/<containerId>/`. This directory is the Docker build context. If the Dockerfile references local files (e.g., `COPY`), we may need to fetch those too — determine during implementation by inspecting the actual OpenClaw Dockerfile.
+The fetched Dockerfile and any supporting files are written to `~/.outclaw/docker-containers/<containerId>/`. This directory is the Docker build context. If the Dockerfile references local files (e.g., `COPY`), we may need to fetch those too — determine during implementation by inspecting the actual OpenClaw Dockerfile.
 
 ### 4.3 Compose Generator (`docker/compose_gen.rs`)
 
@@ -298,9 +298,9 @@ pub fn generate_extra_compose(instance: &InstanceConfig) -> Result<Option<String
 
 Generates `docker-compose.yml` as a YAML string. Uses the `serde_yaml` crate (no hand-written YAML templates).
 
-**Service naming:** `easyclaw-{containerId}-gateway`, `easyclaw-{containerId}-cli`. The compose project name is `easyclaw-{containerId}`.
+**Service naming:** `outclaw-{containerId}-gateway`, `outclaw-{containerId}-cli`. The compose project name is `outclaw-{containerId}`.
 
-**Labels:** Every container gets `easyclaw.container={containerId}` and `easyclaw.instance={instanceId}` labels for identification by the poller.
+**Labels:** Every container gets `outclaw.container={containerId}` and `outclaw.instance={instanceId}` labels for identification by the poller.
 
 **Port mapping:**
 
@@ -319,13 +319,13 @@ Bind address depends on `gatewayBind` setting.
 pub fn generate_env(instance: &InstanceConfig) -> String
 ```
 
-Writes all instance settings as `KEY=VALUE` lines to `~/.easyclaw/docker/<id>/.env`. Format matches what OpenClaw's docker-compose expects.
+Writes all instance settings as `KEY=VALUE` lines to `~/.outclaw/docker/<id>/.env`. Format matches what OpenClaw's docker-compose expects.
 
 ### 4.5 Instance Manager (`instance/manager.rs`)
 
 ```rust
 pub struct InstanceManager {
-    base_dir: PathBuf,  // ~/.easyclaw
+    base_dir: PathBuf,  // ~/.outclaw
 }
 
 impl InstanceManager {
@@ -362,7 +362,7 @@ impl InstanceManager {
 
 1. Stop container if running (`docker compose stop`)
 2. Remove containers (`docker compose down`)
-3. Remove Docker image (`docker rmi easyclaw-<containerId>:latest`)
+3. Remove Docker image (`docker rmi outclaw-<containerId>:latest`)
 4. Delete `instances/<instanceId>/` directory tree
 5. Delete `docker-containers/<containerId>/` directory tree (only if no other instance references it — future-proof for forking)
 
@@ -388,7 +388,7 @@ pub fn allocate(existing_instances: &[InstanceConfig]) -> Result<(u16, u16)>
 pub fn validate_port(port: u16, instance_id: Option<&str>, existing: &[InstanceConfig]) -> Result<()>
 ```
 
-**allocate():** Start from (18789, 18790). If taken by an existing instance, try (18791, 18792), etc. Also check OS-level port availability using `TcpListener::bind()` — catches non-EasyClaw conflicts.
+**allocate():** Start from (18789, 18790). If taken by an existing instance, try (18791, 18792), etc. Also check OS-level port availability using `TcpListener::bind()` — catches non-OutClaw conflicts.
 
 **validate_port():** Check range (1024–65535), check against other instances (excluding self if editing), check OS bind. Returns specific error message for each failure case.
 
@@ -406,7 +406,7 @@ impl Poller {
 Runs as a `tokio::spawn` background task. On each tick:
 
 1. `docker_cli.check_available()` → emit `docker-status-changed` if state changed
-2. If Docker running: `docker_cli.list_containers("easyclaw.container")` → match containers to instances via `containerId` → emit `instance-status-changed` for any changes
+2. If Docker running: `docker_cli.list_containers("outclaw.container")` → match containers to instances via `containerId` → emit `instance-status-changed` for any changes
 3. Sleep for interval
 
 **Intervals:**
@@ -421,7 +421,7 @@ The poller keeps a `HashMap<String, InstanceStatus>` of last-known statuses to a
 
 ```rust
 pub struct ReleasesClient {
-    cache_path: PathBuf,  // ~/.easyclaw/releases-cache.json
+    cache_path: PathBuf,  // ~/.outclaw/releases-cache.json
     cache_ttl: Duration,  // 1 hour
 }
 
@@ -432,7 +432,7 @@ impl ReleasesClient {
 
 **Fetch:** GET `https://api.github.com/repos/openclaw/openclaw/releases` with `Accept: application/vnd.github+json`. Parse JSON response. No auth token needed for public repos (but respect rate limits — 60 req/hr unauthenticated).
 
-**Cache:** Write response to `~/.easyclaw/releases-cache.json` with a timestamp. On next call, if cache is < 1 hour old, return cached. If fetch fails but cache exists, return stale cache with a warning flag.
+**Cache:** Write response to `~/.outclaw/releases-cache.json` with a timestamp. On next call, if cache is < 1 hour old, return cached. If fetch fails but cache exists, return stale cache with a warning flag.
 
 **HTTP client:** `reqwest` crate with Tauri's HTTP client plugin, or direct `reqwest` with a reasonable timeout (10s).
 
@@ -512,7 +512,7 @@ Stage 2: "Generating configuration"
   → generate extra compose if needed
 
 Stage 3: "Building Docker image"
-  → docker build -t easyclaw-<containerId>:latest --build-arg ... docker-containers/<containerId>/
+  → docker build -t outclaw-<containerId>:latest --build-arg ... docker-containers/<containerId>/
   → stream output line by line
 
 Stage 4: "Creating directories"
@@ -520,21 +520,21 @@ Stage 4: "Creating directories"
   → (already done by create_instance, but ensure they exist)
 
 Stage 5: "Starting container"
-  → docker compose -f ... -p easyclaw-<containerId> up -d
+  → docker compose -f ... -p outclaw-<containerId> up -d
 
 Stage 6: "Running initial setup"
-  → docker compose run --rm easyclaw-<containerId>-cli onboard --mode local --no-install-daemon
+  → docker compose run --rm outclaw-<containerId>-cli onboard --mode local --no-install-daemon
 
 Stage 7: "Fixing permissions"
-  → docker compose run --rm --user root --entrypoint sh easyclaw-<containerId>-cli -c 'find /home/node/.openclaw -xdev -exec chown node:node {} +'
+  → docker compose run --rm --user root --entrypoint sh outclaw-<containerId>-cli -c 'find /home/node/.openclaw -xdev -exec chown node:node {} +'
 
 Stage 8: "Configuring gateway"
-  → docker compose run --rm easyclaw-<containerId>-cli config set gateway.mode local
-  → docker compose run --rm easyclaw-<containerId>-cli config set gateway.bind <bind>
+  → docker compose run --rm outclaw-<containerId>-cli config set gateway.mode local
+  → docker compose run --rm outclaw-<containerId>-cli config set gateway.bind <bind>
   → if lan: configure control UI allowed origins
 
 Stage 9: "Restarting gateway"
-  → docker compose -p easyclaw-<containerId> up -d (pick up config changes)
+  → docker compose -p outclaw-<containerId> up -d (pick up config changes)
 ```
 
 If any stage fails, emit error via `build-progress` event with the stage name and error output. The frontend shows the failure point and log. The user can retry (re-runs from stage 1) or go back to edit settings.
@@ -572,11 +572,11 @@ Instance directories created with user-default permissions. No sensitive data is
 
 ### Rust Backend
 
-All public functions return `Result<T, EasyClawError>`. Custom error type:
+All public functions return `Result<T, OutClawError>`. Custom error type:
 
 ```rust
 #[derive(Debug, thiserror::Error)]
-pub enum EasyClawError {
+pub enum OutClawError {
     #[error("Docker is not running")]
     DockerNotRunning,
     #[error("Docker is not installed")]
@@ -597,10 +597,10 @@ pub enum EasyClawError {
     Other(String),
 }
 
-impl serde::Serialize for EasyClawError { /* for Tauri IPC */ }
+impl serde::Serialize for OutClawError { /* for Tauri IPC */ }
 ```
 
-Tauri commands convert `EasyClawError` to serializable error strings for the frontend. The frontend displays these in appropriate UI contexts (inline errors, toast notifications, build failure screens).
+Tauri commands convert `OutClawError` to serializable error strings for the frontend. The frontend displays these in appropriate UI contexts (inline errors, toast notifications, build failure screens).
 
 ### Frontend
 
@@ -613,7 +613,7 @@ Tauri commands convert `EasyClawError` to serializable error strings for the fro
 Use `tracing` crate on the Rust side. Log to:
 
 - stderr (visible in dev)
-- `~/.easyclaw/logs/easyclaw.log` (rotating, for debugging production issues)
+- `~/.outclaw/logs/outclaw.log` (rotating, for debugging production issues)
 
 Log levels: `error` for failures, `warn` for recoverable issues, `info` for lifecycle events (instance created, build started), `debug` for Docker command output.
 
@@ -770,12 +770,12 @@ pub fn docker_socket_path() -> PathBuf {
 ### Home Directory
 
 ```rust
-pub fn easyclaw_dir() -> PathBuf {
-    dirs::home_dir().expect("No home directory").join(".easyclaw")
+pub fn outclaw_dir() -> PathBuf {
+    dirs::home_dir().expect("No home directory").join(".outclaw")
 }
 ```
 
-On Windows this resolves to `C:\Users\<name>\.easyclaw\`. On macOS/Linux: `~/.easyclaw/`.
+On Windows this resolves to `C:\Users\<name>\.outclaw\`. On macOS/Linux: `~/.outclaw/`.
 
 ### Path Handling
 

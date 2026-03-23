@@ -8,7 +8,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, error, info, warn};
 
-use crate::error::{EasyClawError, Result};
+use crate::error::{OutClawError, Result};
 use crate::instance::{DockerState, DockerStatus};
 
 /// Docker CLI wrapper
@@ -25,7 +25,7 @@ impl Default for DockerCli {
 impl DockerCli {
     pub fn new() -> Self {
         // Allow override via environment variable
-        let docker_bin = std::env::var("EASYCLAW_DOCKER_BIN")
+        let docker_bin = std::env::var("OUTCLAW_DOCKER_BIN")
             .unwrap_or_else(|_| "docker".to_string());
         Self { docker_bin }
     }
@@ -91,7 +91,7 @@ impl DockerCli {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             error!("docker compose up failed: {}", stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "compose up failed: {}",
                 stderr
             )));
@@ -118,7 +118,7 @@ impl DockerCli {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             error!("docker compose stop failed: {}", stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "compose stop failed: {}",
                 stderr
             )));
@@ -145,7 +145,7 @@ impl DockerCli {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             error!("docker compose down failed: {}", stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "compose down failed: {}",
                 stderr
             )));
@@ -189,7 +189,7 @@ impl DockerCli {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             error!("docker compose run failed: {}", stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "compose run failed: {}",
                 stderr
             )));
@@ -244,7 +244,7 @@ impl DockerCli {
 
         if !status.success() {
             let _ = progress_tx.send("Build failed".to_string()).await;
-            return Err(EasyClawError::DockerCommand("Docker build failed".to_string()));
+            return Err(OutClawError::DockerCommand("Docker build failed".to_string()));
         }
 
         let _ = progress_tx.send("Build completed successfully".to_string()).await;
@@ -268,7 +268,7 @@ impl DockerCli {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "docker ps failed: {}",
                 stderr
             )));
@@ -300,7 +300,7 @@ impl DockerCli {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EasyClawError::DockerCommand(format!(
+            return Err(OutClawError::DockerCommand(format!(
                 "docker inspect failed: {}",
                 stderr
             )));
@@ -308,7 +308,7 @@ impl DockerCli {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let info: ContainerInfo = serde_json::from_str(&stdout)
-            .map_err(|e| EasyClawError::Serialization(format!("Failed to parse container info: {}", e)))?;
+            .map_err(|e| OutClawError::Serialization(format!("Failed to parse container info: {}", e)))?;
 
         Ok(info)
     }
@@ -349,14 +349,14 @@ pub struct ContainerInfo {
 }
 
 impl ContainerInfo {
-    /// Get the container's EasyClaw container ID from labels
-    pub fn easyclaw_container_id(&self) -> Option<&str> {
-        self.labels.get("easyclaw.container").map(|s| s.as_str())
+    /// Get the container's OutClaw container ID from labels
+    pub fn outclaw_container_id(&self) -> Option<&str> {
+        self.labels.get("outclaw.container").map(|s| s.as_str())
     }
 
-    /// Get the container's EasyClaw instance ID from labels
-    pub fn easyclaw_instance_id(&self) -> Option<&str> {
-        self.labels.get("easyclaw.instance").map(|s| s.as_str())
+    /// Get the container's OutClaw instance ID from labels
+    pub fn outclaw_instance_id(&self) -> Option<&str> {
+        self.labels.get("outclaw.instance").map(|s| s.as_str())
     }
 
     /// Check if the container is running

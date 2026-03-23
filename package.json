@@ -1,5 +1,5 @@
 {
-	"name": "easyclaw",
+	"name": "outclaw",
 	"version": "0.1.0",
 	"description": "Desktop app for managing OpenClaw instances",
 	"type": "module",

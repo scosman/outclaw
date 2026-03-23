@@ -32,7 +32,7 @@
 
 			<p class="mb-6 text-sm text-zinc-400">
 				{#if dockerStore.isNotInstalled}
-					EasyClaw requires Docker to manage OpenClaw instances. Please install Docker Desktop to
+					OutClaw requires Docker to manage OpenClaw instances. Please install Docker Desktop to
 					continue.
 				{:else if dockerStore.isNotRunning}
 					Docker Desktop is installed but not running. Please start Docker Desktop to continue.

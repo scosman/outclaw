@@ -4,7 +4,7 @@ use std::time::Duration;
 use reqwest::Client;
 use tracing::{debug, info};
 
-use crate::error::{EasyClawError, Result};
+use crate::error::{OutClawError, Result};
 use crate::instance::Release;
 
 const GITHUB_RAW_URL: &str = "https://raw.githubusercontent.com";
@@ -43,11 +43,11 @@ pub async fn fetch_dockerfile(
         .timeout(Duration::from_secs(30))
         .send()
         .await
-        .map_err(|e| EasyClawError::DockerfileFetch(format!("Network error: {}", e)))?;
+        .map_err(|e| OutClawError::DockerfileFetch(format!("Network error: {}", e)))?;
 
     if !response.status().is_success() {
         let status = response.status();
-        return Err(EasyClawError::DockerfileFetch(format!(
+        return Err(OutClawError::DockerfileFetch(format!(
             "GitHub returned status {} for {}",
             status, url
         )));
@@ -56,7 +56,7 @@ pub async fn fetch_dockerfile(
     let content = response
         .text()
         .await
-        .map_err(|e| EasyClawError::DockerfileFetch(format!("Failed to read response: {}", e)))?;
+        .map_err(|e| OutClawError::DockerfileFetch(format!("Failed to read response: {}", e)))?;
 
     // Cache the result
     if let Some(parent) = cache_file.parent() {

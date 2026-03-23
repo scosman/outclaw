@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Setup Wizard - EasyClaw</title>
+	<title>Setup Wizard - OutClaw</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

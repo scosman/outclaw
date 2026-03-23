@@ -2,7 +2,7 @@
 status: complete
 ---
 
-# Implementation Plan: EasyClaw
+# Implementation Plan: OutClaw
 
 10 phases. Each produces a reviewable, manually testable increment. Dependency order: each phase builds on the previous.
 
@@ -35,7 +35,7 @@ Set up the project from scratch with all tooling configured.
 - ESLint + Prettier + svelte-check configured
 - Cargo fmt + Cargo clippy configured
 - GitHub Actions CI workflow (lint, format, type-check, tests for both frontend and Rust)
-- Basic app window: header bar with "EasyClaw" text, placeholder content area
+- Basic app window: header bar with "OutClaw" text, placeholder content area
 - Window: 900x640 default, 720x500 minimum
 
 **Manual test:** `npm run tauri dev` — app launches, dark themed window appears with monospace font and header bar.
@@ -48,7 +48,7 @@ All Rust backend modules, data models, and Tauri command stubs. No frontend inte
 
 **Delivers:**
 
-- Data models: `InstanceConfig`, `InstanceSettings`, `InstanceStatus`, `DockerStatus`, `Release`, `AppState`, `EasyClawError`
+- Data models: `InstanceConfig`, `InstanceSettings`, `InstanceStatus`, `DockerStatus`, `Release`, `AppState`, `OutClawError`
 - Instance manager: CRUD operations, directory structure creation/deletion
 - Name generator: curated adjective + animal word lists, collision handling
 - Port allocator: auto-increment from 18789/18790, OS-level port check, validation
@@ -110,7 +110,7 @@ The wizard UI up through the configuration step. Does not build yet.
 - `create_instance` command wired: creates instance on disk when user clicks Next from config form (or from install type with Standard selected)
 - Standard Install: calls create_instance with all defaults, skips to build step
 
-**Manual test:** Open wizard, step through Docker check → Install Type → Custom Config. Version dropdown loads. Form validates. Back/Cancel work. Selecting Standard and clicking Next creates an instance (visible in `~/.easyclaw/instances/`). Wizard advances to build step (which shows placeholder).
+**Manual test:** Open wizard, step through Docker check → Install Type → Custom Config. Version dropdown loads. Form validates. Back/Cancel work. Selecting Standard and clicking Next creates an instance (visible in `~/.outclaw/instances/`). Wizard advances to build step (which shows placeholder).
 
 ---
 

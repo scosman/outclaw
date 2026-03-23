@@ -2,7 +2,7 @@
 status: complete
 ---
 
-# Functional Spec: EasyClaw
+# Functional Spec: OutClaw
 
 A cross-platform desktop application for setting up, running, and managing OpenClaw instances inside Docker containers. Targets non-technical users who want to run a personal AI agent without touching the command line.
 
@@ -18,8 +18,8 @@ Each instance tracks:
 - **OpenClaw version**: which GitHub release was used to build the image
 - **Docker container ID/name**: the running (or stopped) container
 - **Status**: building, running, stopped, error, docker-not-running
-- **Config directory**: under `~/.easyclaw/instances/<id>/config/`
-- **Workspace directory**: under `~/.easyclaw/instances/<id>/workspace/`
+- **Config directory**: under `~/.outclaw/instances/<id>/config/`
+- **Workspace directory**: under `~/.outclaw/instances/<id>/workspace/`
 - **Docker build settings**: the options chosen during setup (ports, bind mode, packages, extensions, etc.)
 - **Created/last modified timestamps**
 
@@ -30,7 +30,7 @@ The directory structure and data model are designed to support instance versioni
 Planned structure (for reference, not implemented in V1):
 
 ```
-~/.easyclaw/instances/<id>/versions/
+~/.outclaw/instances/<id>/versions/
   v1/
     config/          ← snapshot of config at this version
     Dockerfile       ← Dockerfile used for this build
@@ -42,8 +42,8 @@ Planned structure (for reference, not implemented in V1):
 ### Directory Layout
 
 ```
-~/.easyclaw/
-  app-state.json              ← EasyClaw app state (window position, last active instance, etc.)
+~/.outclaw/
+  app-state.json              ← OutClaw app state (window position, last active instance, etc.)
   docker-containers/          ← Generated Dockerfiles, docker-compose files, build context
     <container-id>/           ← each container has its own ID (separate from instance ID)
       Dockerfile
@@ -68,7 +68,7 @@ Instance IDs are generated (e.g., short random alphanumeric like `ec_a1b2c3`). N
 
 ### Docker Desktop Requirement
 
-EasyClaw requires Docker Desktop to be installed and running. It does not install Docker itself.
+OutClaw requires Docker Desktop to be installed and running. It does not install Docker itself.
 
 **Detection logic (polled):**
 
@@ -150,12 +150,12 @@ A form with OpenClaw Docker build options. Organized into sections. Each option 
 | `OPENCLAW_EXTRA_MOUNTS`              | "Extra Volume Mounts"        | Empty                | Text area  | Comma-separated `source:target[:options]` |
 | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | "Allow Insecure WebSocket"   | Off                  | Toggle     | Shows warning when enabled                |
 
-**Not exposed in UI (fixed values managed by EasyClaw):**
+**Not exposed in UI (fixed values managed by OutClaw):**
 
 | Setting                       | Behavior                                                                                                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OPENCLAW_CONFIG_DIR`         | Managed by EasyClaw, set to instance config path                                                                                                         |
-| `OPENCLAW_WORKSPACE_DIR`      | Managed by EasyClaw, set to instance workspace path                                                                                                      |
+| `OPENCLAW_CONFIG_DIR`         | Managed by OutClaw, set to instance config path                                                                                                         |
+| `OPENCLAW_WORKSPACE_DIR`      | Managed by OutClaw, set to instance workspace path                                                                                                      |
 | `OPENCLAW_GATEWAY_TOKEN`      | Auto-generated (secure random hex, 32 bytes). Stored in instance metadata. User can view/copy from Instance Detail screen but never asked to create one. |
 | `OPENCLAW_DOCKER_SOCKET`      | Not set. V1 does not mount the Docker socket (agent-in-gateway mode).                                                                                    |
 | `OPENCLAW_SANDBOX`            | Always disabled. No sandbox in V1 — the container itself is the isolation boundary.                                                                      |
@@ -281,29 +281,29 @@ Accessed by clicking an instance from the main screen.
 
 | Scenario                             | Behavior                                                       |
 | ------------------------------------ | -------------------------------------------------------------- |
-| `~/.easyclaw` doesn't exist          | Create it on first launch.                                     |
+| `~/.outclaw` doesn't exist          | Create it on first launch.                                     |
 | Instance directory corrupted/missing | Show instance with "error" status. Offer "Delete" to clean up. |
 | `instance.json` can't be parsed      | Same as corrupted — surface error, offer delete.               |
 | Port conflict between instances      | Detect during creation. Prevent saving duplicate ports.        |
 
 ## 5. Docker Build Configuration Details
 
-EasyClaw generates a Dockerfile and docker-compose.yml per instance. The generated files are equivalent to what the OpenClaw setup script produces, but generated programmatically rather than by running the bash script.
+OutClaw generates a Dockerfile and docker-compose.yml per instance. The generated files are equivalent to what the OpenClaw setup script produces, but generated programmatically rather than by running the bash script.
 
 ### Dockerfile Strategy
 
-EasyClaw does **not** download or maintain a local copy of the OpenClaw source. Instead:
+OutClaw does **not** download or maintain a local copy of the OpenClaw source. Instead:
 
 1. **Fetch the base Dockerfile**: Download OpenClaw's published Dockerfile from GitHub at the selected release's commit hash/tag (e.g., `https://raw.githubusercontent.com/openclaw/openclaw/<tag>/Dockerfile`). The Dockerfile itself handles fetching and building OpenClaw internally.
-2. **Replace setup.sh logic**: The setup script's job (setting environment variables, generating docker-compose, writing .env) is replaced entirely by EasyClaw's programmatic generation. We do not run or ship the setup script.
+2. **Replace setup.sh logic**: The setup script's job (setting environment variables, generating docker-compose, writing .env) is replaced entirely by OutClaw's programmatic generation. We do not run or ship the setup script.
 3. **Apply build-time arguments**: Pass user-selected options as build args (`OPENCLAW_DOCKER_APT_PACKAGES`, `OPENCLAW_EXTENSIONS`, `OPENCLAW_INSTALL_DOCKER_CLI`, browser install) to the fetched Dockerfile.
-4. **Build context**: The fetched Dockerfile and any supporting files form the build context under `~/.easyclaw/docker/<instance-id>/`.
+4. **Build context**: The fetched Dockerfile and any supporting files form the build context under `~/.outclaw/docker/<instance-id>/`.
 
 ### docker-compose.yml Generation
 
 Generated per-instance with:
 
-- Service name namespaced to instance (e.g., `easyclaw-<id>-gateway`, `easyclaw-<id>-cli`)
+- Service name namespaced to instance (e.g., `outclaw-<id>-gateway`, `outclaw-<id>-cli`)
 - Port mappings from instance settings
 - Volume mounts for config and workspace directories
 - Environment variables from instance settings
@@ -337,11 +337,11 @@ All instance settings written as environment variables, matching the format the 
 
 ## 7. Port Management
 
-Multiple instances require unique port assignments. EasyClaw manages this:
+Multiple instances require unique port assignments. OutClaw manages this:
 
 - **Default ports**: Gateway 18789, Bridge 18790
 - **Auto-increment**: When creating a new instance, if default ports are taken by another instance, increment (18791/18792, etc.)
-- **Validation**: Check against all existing instances. Also attempt to bind-check against the OS to catch non-EasyClaw port conflicts.
+- **Validation**: Check against all existing instances. Also attempt to bind-check against the OS to catch non-OutClaw port conflicts.
 - **Display**: Show assigned ports clearly in instance detail and main screen tooltips.
 
 ## 8. Security
@@ -374,7 +374,7 @@ V1 uses agent-in-gateway mode exclusively. The agent runs within the gateway con
 ### Fetching Available Versions
 
 - Query the OpenClaw GitHub Releases API: `https://api.github.com/repos/openclaw/openclaw/releases`
-- Cache the response locally (in `~/.easyclaw/`) with a TTL (e.g., 1 hour)
+- Cache the response locally (in `~/.outclaw/`) with a TTL (e.g., 1 hour)
 - Show release tag name, publication date, and whether it's the latest
 - Pre-select the latest stable (non-prerelease) release
 
@@ -397,7 +397,7 @@ V1 uses agent-in-gateway mode exclusively. The agent runs within the gateway con
 
 - Docker socket: named pipe `//./pipe/docker_engine` or TCP
 - File paths: use platform-appropriate paths (backslash handling, `%USERPROFILE%` instead of `~`)
-- Config directory: `%USERPROFILE%\.easyclaw\`
+- Config directory: `%USERPROFILE%\.outclaw\`
 - Distribution: `.msi` or `.exe` installer
 - Docker Desktop must be running with WSL2 backend
 
@@ -423,7 +423,7 @@ V1 uses agent-in-gateway mode exclusively. The agent runs within the gateway con
 - **Native provider setup UI**: V1 shows CLI instructions; native UI is a later implementation phase
 - **Native channel setup UI**: Same as above
 - **Light theme**: Dark mode only in V1
-- **Auto-updates for EasyClaw itself**: Use GitHub Releases; users download new versions manually
+- **Auto-updates for OutClaw itself**: Use GitHub Releases; users download new versions manually
 - **Remote instances**: All instances are local Docker containers
 - **Docker installation**: Users must install Docker Desktop themselves
 - **Container log viewer**: Stretch goal, not required for V1 launch

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use commands::instances::AppState;
 use poller::Poller;
 
-pub use error::EasyClawError;
+pub use error::OutClawError;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

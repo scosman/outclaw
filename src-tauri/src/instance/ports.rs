@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use crate::error::{EasyClawError, Result};
+use crate::error::{OutClawError, Result};
 use crate::instance::InstanceConfig;
 
 /// Default gateway port
@@ -53,13 +53,13 @@ pub fn allocate_ports(existing_instances: &[InstanceConfig]) -> Result<(u16, u16
 
         // Wrap around if we exceed max port
         if gateway_port > MAX_PORT - 2 {
-            return Err(EasyClawError::Other(
+            return Err(OutClawError::Other(
                 "No available port pairs found".to_string(),
             ));
         }
     }
 
-    Err(EasyClawError::Other(
+    Err(OutClawError::Other(
         "Could not allocate ports after 1000 attempts".to_string(),
     ))
 }
@@ -85,7 +85,7 @@ pub fn validate_port(
 ) -> Result<()> {
     // Check range - u16 max is 65535, so we only need to check minimum
     if port < MIN_PORT {
-        return Err(EasyClawError::PortOutOfRange(port));
+        return Err(OutClawError::PortOutOfRange(port));
     }
 
     // Check against other instances
@@ -98,13 +98,13 @@ pub fn validate_port(
         }
 
         if instance.gateway_port == port || instance.bridge_port == port {
-            return Err(EasyClawError::PortInUse(port));
+            return Err(OutClawError::PortInUse(port));
         }
     }
 
     // Check OS-level availability
     if !is_port_available(port) {
-        return Err(EasyClawError::PortInUse(port));
+        return Err(OutClawError::PortInUse(port));
     }
 
     Ok(())
@@ -180,7 +180,7 @@ mod tests {
         let instances = vec![];
 
         let result = validate_port(80, None, &instances);
-        assert!(matches!(result, Err(EasyClawError::PortOutOfRange(80))));
+        assert!(matches!(result, Err(OutClawError::PortOutOfRange(80))));
 
         // Port 65535+ can't be tested directly since u16 max is 65535
         // The validation will catch values above 65535 at compile time
@@ -191,7 +191,7 @@ mod tests {
         let instances = vec![create_test_instance("ec_1", 18789, 18790)];
 
         let result = validate_port(18789, None, &instances);
-        assert!(matches!(result, Err(EasyClawError::PortInUse(18789))));
+        assert!(matches!(result, Err(OutClawError::PortInUse(18789))));
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod tests {
         // When instance_id matches, should allow the port (assuming port is free at OS level)
         let result = validate_port(test_port, Some("ec_1"), &instances);
         // This might still fail if port is actually in use by system, but not due to our check
-        if let Err(EasyClawError::PortInUse(_)) = result {
+        if let Err(OutClawError::PortInUse(_)) = result {
             panic!("Port should be allowed for same instance");
         }
     }

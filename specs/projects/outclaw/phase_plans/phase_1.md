@@ -13,7 +13,7 @@ Initialize the Tauri v2 + SvelteKit project with all tooling, theming, and CI co
 ### 1. Initialize Tauri v2 Project with SvelteKit
 
 ```bash
-npm create tauri-app@latest easyclaw-temp -- --template svelte-ts
+npm create tauri-app@latest outclaw-temp -- --template svelte-ts
 ```
 
 Then copy the generated files to the project root, or manually set up:
@@ -68,8 +68,8 @@ Then copy the generated files to the project root, or manually set up:
 
 - Update `src-tauri/tauri.conf.json`:
   - Window size: 900x640 default, 720x500 minimum
-  - Title: "EasyClaw"
-- Create root `+layout.svelte` with header bar containing "EasyClaw" text
+  - Title: "OutClaw"
+- Create root `+layout.svelte` with header bar containing "OutClaw" text
 - Create placeholder `+page.svelte` with content area
 
 ### 9. Verify and Test
@@ -83,7 +83,7 @@ Then copy the generated files to the project root, or manually set up:
 
 - [ ] `npm run tauri dev` launches app with dark theme
 - [ ] App window is 900x640 with 720x500 minimum
-- [ ] Header bar shows "EasyClaw" text
+- [ ] Header bar shows "OutClaw" text
 - [ ] JetBrains Mono font is applied
 - [ ] `npm run check` passes (svelte-check + TypeScript)
 - [ ] `npm run lint` passes

@@ -1,12 +1,12 @@
 [package]
-name = "easyclaw"
+name = "outclaw"
 version = "0.1.0"
 description = "Desktop app for managing OpenClaw instances"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "easyclaw_lib"
+name = "outclaw_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

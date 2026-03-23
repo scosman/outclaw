@@ -8,7 +8,7 @@ use crate::instance::{GatewayBind, InstanceConfig};
 
 /// Generate docker-compose.yml content for an instance
 pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
-    let project_name = format!("easyclaw-{}", config.container_id);
+    let project_name = format!("outclaw-{}", config.container_id);
     let gateway_service = format!("{}-gateway", project_name);
     let cli_service = format!("{}-cli", project_name);
     let image_name = format!("{}:latest", project_name);
@@ -22,8 +22,8 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
 
     // Build labels
     let mut labels = HashMap::new();
-    labels.insert("easyclaw.container".to_string(), config.container_id.clone());
-    labels.insert("easyclaw.instance".to_string(), config.id.clone());
+    labels.insert("outclaw.container".to_string(), config.container_id.clone());
+    labels.insert("outclaw.instance".to_string(), config.id.clone());
 
     // Get paths
     let config_path = config.config_path();
@@ -39,7 +39,7 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                 gateway_service,
                 Service {
                     image: image_name.clone(),
-                    container_name: Some(format!("easyclaw-{}-gateway", config.container_id)),
+                    container_name: Some(format!("outclaw-{}-gateway", config.container_id)),
                     restart: Some("unless-stopped".to_string()),
                     ports: vec![
                         format!("{}:18789", gateway_port_binding),
@@ -64,7 +64,7 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                 cli_service,
                 Service {
                     image: image_name,
-                    container_name: Some(format!("easyclaw-{}-cli", config.container_id)),
+                    container_name: Some(format!("outclaw-{}-cli", config.container_id)),
                     restart: None,
                     ports: vec![],
                     volumes: vec![
@@ -148,12 +148,12 @@ mod tests {
 
         // Check key elements - version may be quoted differently by serde_yaml
         assert!(compose.contains("version:") && compose.contains("3.8"));
-        assert!(compose.contains("easyclaw-ct_abc456-gateway"));
-        assert!(compose.contains("easyclaw-ct_abc456-cli"));
+        assert!(compose.contains("outclaw-ct_abc456-gateway"));
+        assert!(compose.contains("outclaw-ct_abc456-cli"));
         assert!(compose.contains("18789:18789"));
         assert!(compose.contains("18790:18790"));
-        assert!(compose.contains("easyclaw.container"));
-        assert!(compose.contains("easyclaw.instance"));
+        assert!(compose.contains("outclaw.container"));
+        assert!(compose.contains("outclaw.instance"));
     }
 
     #[test]
