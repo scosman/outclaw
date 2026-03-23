@@ -13,7 +13,7 @@ status: complete
 - [x] Phase 3: Docker detection + instance list UI
 - [x] Phase 4: Setup wizard — install type + configuration form
 - [x] Phase 5: Docker build pipeline
-- [ ] Phase 6: Wizard completion + post-setup flow
+- [x] Phase 6: Wizard completion + post-setup flow
 - [ ] Phase 7: Instance lifecycle + status polling
 - [ ] Phase 8: Instance detail screen
 - [ ] Phase 9: Instance management (edit settings, rebuild, delete)
