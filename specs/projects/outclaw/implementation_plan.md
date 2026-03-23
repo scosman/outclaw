@@ -12,7 +12,7 @@ status: complete
 - [x] Phase 2: Rust backend core (data model, instance manager, Docker CLI, GitHub client)
 - [x] Phase 3: Docker detection + instance list UI
 - [x] Phase 4: Setup wizard — install type + configuration form
-- [ ] Phase 5: Docker build pipeline
+- [x] Phase 5: Docker build pipeline
 - [ ] Phase 6: Wizard completion + post-setup flow
 - [ ] Phase 7: Instance lifecycle + status polling
 - [ ] Phase 8: Instance detail screen
