@@ -47,6 +47,7 @@
 	]);
 
 	let logs = $state<string[]>([]);
+	let showLogs = $state(false);
 	let isComplete = $state(false);
 	let hasError = $state(false);
 	let errorMessage = $state<string | undefined>();
@@ -183,24 +184,40 @@
 		</div>
 	</div>
 
-	<!-- Log Output -->
+	<!-- Log Output (collapsible) -->
 	<div class="rounded-lg border border-zinc-800 bg-zinc-900/50">
-		<div class="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
-			<span class="text-xs font-medium text-zinc-400">Build Log</span>
-			<span class="text-xs text-zinc-500">{logs.length} lines</span>
-		</div>
-		<div
-			bind:this={logContainer}
-			class="max-h-64 min-h-32 overflow-y-auto bg-black/30 p-3 font-mono text-xs"
+		<button
+			type="button"
+			class="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-zinc-800/50"
+			onclick={() => (showLogs = !showLogs)}
 		>
-			{#if logs.length === 0}
-				<span class="text-zinc-600">Waiting for build output...</span>
-			{:else}
-				{#each logs as log, idx (idx)}
-					<pre class="whitespace-pre-wrap text-zinc-400">{log}</pre>
-				{/each}
-			{/if}
-		</div>
+			<span class="text-xs font-medium text-zinc-400">Build Log</span>
+			<div class="flex items-center gap-2">
+				<span class="text-xs text-zinc-500">{logs.length} lines</span>
+				<svg
+					class="h-4 w-4 text-zinc-500 transition-transform {showLogs ? 'rotate-180' : ''}"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+				</svg>
+			</div>
+		</button>
+		{#if showLogs}
+			<div
+				bind:this={logContainer}
+				class="max-h-64 min-h-32 overflow-y-auto border-t border-zinc-800 bg-black/30 p-3 font-mono text-xs"
+			>
+				{#if logs.length === 0}
+					<span class="text-zinc-600">Waiting for build output...</span>
+				{:else}
+					{#each logs as log, idx (idx)}
+						<pre class="whitespace-pre-wrap text-zinc-400">{log}</pre>
+					{/each}
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Error State -->
