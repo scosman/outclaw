@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use chrono::Utc;
 use rand::Rng;
@@ -9,7 +8,7 @@ use tracing::{debug, info, warn};
 use crate::error::{EasyClawError, Result};
 use crate::instance::{
     generate_name, allocate_ports, validate_port,
-    InstanceConfig, InstanceSettings, InstanceStatus, InstanceWithStatus,
+    InstanceConfig, InstanceSettings,
 };
 
 /// Manages instance CRUD operations and directory structure
@@ -26,8 +25,7 @@ impl InstanceManager {
 
         // Ensure base directory exists
         fs::create_dir_all(&base_dir).map_err(|e| {
-            EasyClawError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            EasyClawError::Io(std::io::Error::other(
                 format!("Failed to create .easyclaw directory: {}", e),
             ))
         })?;

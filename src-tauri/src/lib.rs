@@ -5,6 +5,11 @@ mod github;
 mod instance;
 mod poller;
 
+use std::sync::Arc;
+
+use commands::instances::AppState;
+use poller::Poller;
+
 pub use error::EasyClawError;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -13,9 +18,25 @@ pub fn run() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
+    let app_state = Arc::new(AppState::new());
+    let poller = Arc::new(Poller::new());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
+        .manage(app_state.clone())
+        .setup(move |app| {
+            // Start the status poller within Tauri's async runtime
+            let app_handle = app.handle().clone();
+            let poller_clone = poller.clone();
+            let state_clone = app_state.clone();
+
+            tauri::async_runtime::spawn(async move {
+                poller_clone.start(app_handle, state_clone);
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::docker::check_docker,
             commands::instances::list_instances,

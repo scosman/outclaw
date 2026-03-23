@@ -8,7 +8,10 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter({
+			// Use SPA fallback for client-side routing with dynamic routes
+			fallback: '200.html'
+		})
 	}
 };
 

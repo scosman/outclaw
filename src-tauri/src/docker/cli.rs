@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Arc;
-use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -346,19 +344,19 @@ pub struct ContainerInfo {
     pub state: String,
     #[serde(rename = "Status")]
     pub status: String,
-    #[serde(default)]
-    pub Labels: HashMap<String, String>,
+    #[serde(default, rename = "Labels")]
+    pub labels: HashMap<String, String>,
 }
 
 impl ContainerInfo {
     /// Get the container's EasyClaw container ID from labels
     pub fn easyclaw_container_id(&self) -> Option<&str> {
-        self.Labels.get("easyclaw.container").map(|s| s.as_str())
+        self.labels.get("easyclaw.container").map(|s| s.as_str())
     }
 
     /// Get the container's EasyClaw instance ID from labels
     pub fn easyclaw_instance_id(&self) -> Option<&str> {
-        self.Labels.get("easyclaw.instance").map(|s| s.as_str())
+        self.labels.get("easyclaw.instance").map(|s| s.as_str())
     }
 
     /// Check if the container is running

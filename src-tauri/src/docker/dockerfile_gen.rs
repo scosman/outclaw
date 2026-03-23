@@ -2,7 +2,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use reqwest::Client;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::error::{EasyClawError, Result};
 use crate::instance::Release;

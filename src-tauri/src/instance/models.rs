@@ -87,17 +87,12 @@ impl InstanceConfig {
 }
 
 /// Network bind mode for the gateway
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum GatewayBind {
+    #[default]
     Loopback,
     Lan,
-}
-
-impl Default for GatewayBind {
-    fn default() -> Self {
-        Self::Loopback
-    }
 }
 
 impl std::fmt::Display for GatewayBind {

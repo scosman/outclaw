@@ -1,14 +1,14 @@
 use tracing::debug;
 
 use crate::error::Result;
-use crate::instance::{GatewayBind, InstanceConfig};
+use crate::instance::InstanceConfig;
 
 /// Generate .env file content for an instance
 pub fn generate_env(config: &InstanceConfig) -> Result<String> {
     let mut lines = Vec::new();
 
     // Core settings
-    lines.push(format!("# EasyClaw Instance Configuration"));
+    lines.push("# EasyClaw Instance Configuration".to_string());
     lines.push(format!("# Instance: {} ({})", config.name, config.id));
     lines.push(format!("# Generated: {}", config.updated_at.to_rfc3339()));
     lines.push(String::new());
@@ -25,7 +25,7 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
 
     // Browser installation
     if config.install_browser {
-        lines.push(format!("OPENCLAW_INSTALL_BROWSER=true"));
+        lines.push("OPENCLAW_INSTALL_BROWSER=true".to_string());
     }
 
     // Additional packages
@@ -50,17 +50,17 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
 
     // Insecure WebSocket
     if config.allow_insecure_ws {
-        lines.push(format!("OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=true"));
+        lines.push("OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=true".to_string());
     }
 
     // Fixed settings managed by EasyClaw
     lines.push(String::new());
-    lines.push(format!("# Settings managed by EasyClaw"));
-    lines.push(format!("OPENCLAW_CONFIG_DIR=/home/node/.openclaw"));
-    lines.push(format!("OPENCLAW_WORKSPACE_DIR=/home/node/workspace"));
+    lines.push("# Settings managed by EasyClaw".to_string());
+    lines.push("OPENCLAW_CONFIG_DIR=/home/node/.openclaw".to_string());
+    lines.push("OPENCLAW_WORKSPACE_DIR=/home/node/workspace".to_string());
 
     // V1: No sandbox (container IS the sandbox)
-    lines.push(format!("OPENCLAW_SANDBOX=false"));
+    lines.push("OPENCLAW_SANDBOX=false".to_string());
 
     let env_content = lines.join("\n");
     debug!("Generated .env file:\n{}", env_content);
@@ -71,6 +71,7 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
 mod tests {
     use super::*;
     use chrono::Utc;
+    use crate::instance::GatewayBind;
 
     fn create_test_config() -> InstanceConfig {
         InstanceConfig {

@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Code for future phases
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,7 +10,7 @@ use tokio::time::interval;
 use tracing::{debug, error, info};
 
 use crate::docker::DockerCli;
-use crate::instance::{DockerState, InstanceManager, InstanceState, InstanceStatus};
+use crate::instance::{DockerState, InstanceState, InstanceStatus};
 use crate::commands::instances::AppState;
 
 /// Background poller for Docker and instance status
@@ -116,7 +118,7 @@ impl Default for Poller {
 async fn get_instance_status(
     docker_cli: &DockerCli,
     instance_id: &str,
-    container_id: &str,
+    _container_id: &str,
 ) -> InstanceStatus {
     // Try to find the container by label
     match docker_cli.list_containers(&format!("easyclaw.instance={}", instance_id)).await {

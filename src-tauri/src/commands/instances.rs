@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
-use tracing::{error, info};
+use tracing::info;
 
 use crate::docker::{generate_compose, generate_env, DockerCli};
-use crate::error::EasyClawError;
 use crate::instance::{
     InstanceConfig, InstanceManager, InstanceSettings, InstanceStatus, InstanceState,
     InstanceWithStatus,
@@ -51,25 +50,47 @@ pub async fn list_instances(
         .map_err::<String, _>(|e| e.to_string())?;
 
     // Build status for each instance
-    let result: Vec<InstanceWithStatus> = instances
-        .into_iter()
-        .map(|config| {
-            let status = if docker_status.state != crate::instance::DockerState::Running {
-                InstanceStatus {
-                    state: InstanceState::DockerNotRunning,
-                    container_id: None,
-                    error_message: None,
+    let mut result = Vec::new();
+    for config in instances {
+        let status = if docker_status.state != crate::instance::DockerState::Running {
+            InstanceStatus {
+                state: InstanceState::DockerNotRunning,
+                container_id: None,
+                error_message: None,
+            }
+        } else {
+            // Query Docker for actual container status
+            match state.docker_cli.list_containers(&format!("easyclaw.instance={}", config.id)).await {
+                Ok(containers) => {
+                    if let Some(container) = containers.first() {
+                        InstanceStatus {
+                            state: if container.is_running() {
+                                InstanceState::Running
+                            } else {
+                                InstanceState::Stopped
+                            },
+                            container_id: Some(container.id.clone()),
+                            error_message: None,
+                        }
+                    } else {
+                        InstanceStatus {
+                            state: InstanceState::Stopped,
+                            container_id: None,
+                            error_message: None,
+                        }
+                    }
                 }
-            } else {
-                // Check if container is running
-                // For now, just return stopped status
-                // Full implementation would query Docker
-                InstanceStatus::default()
-            };
-
-            InstanceWithStatus { config, status }
-        })
-        .collect();
+                Err(e) => {
+                    InstanceStatus {
+                        state: InstanceState::Error,
+                        container_id: None,
+                        error_message: Some(format!("Failed to query Docker: {}", e)),
+                    }
+                }
+            }
+        };
+        result.push(InstanceWithStatus { config, status });
+    }
 
     info!("Found {} instances", result.len());
     Ok(result)

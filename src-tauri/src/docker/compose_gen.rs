@@ -56,7 +56,6 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                         format!("OPENCLAW_TZ={}", config.timezone),
                     ],
                     labels: Some(labels.clone()),
-                    ..Default::default()
                 },
             );
 
@@ -66,6 +65,8 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                 Service {
                     image: image_name,
                     container_name: Some(format!("easyclaw-{}-cli", config.container_id)),
+                    restart: None,
+                    ports: vec![],
                     volumes: vec![
                         format!("{}:/home/node/.openclaw", config_path.display()),
                         format!("{}:/home/node/workspace", workspace_path.display()),
@@ -77,7 +78,6 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                         format!("OPENCLAW_TZ={}", config.timezone),
                     ],
                     labels: Some(labels),
-                    ..Default::default()
                 },
             );
 

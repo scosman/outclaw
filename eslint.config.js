@@ -19,5 +19,11 @@ export default [
 				process: 'readonly'
 			}
 		}
+	},
+	{
+		rules: {
+			// Disabled because Tauri uses static adapter and standard href navigation is fine
+			'svelte/no-navigation-without-resolve': 'off'
+		}
 	}
 ];
