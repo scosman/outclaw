@@ -589,8 +589,7 @@
 								<p class="font-medium text-zinc-300">What is a provider?</p>
 								<p class="mt-1">
 									A provider connects your OpenClaw instance to an AI service like Anthropic Claude
-									or OpenAI. This enables intelligent messaging capabilities. You can skip this step
-									and configure it later.
+									or OpenAI. A provider is required for OpenClaw to function.
 								</p>
 							</div>
 						</div>
@@ -804,15 +803,6 @@
 				Back to Settings
 			</button>
 		{:else if wizardStore.currentStep === 'provider'}
-			{#if !connectionSuccess}
-				<button
-					type="button"
-					class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
-					onclick={handleNext}
-				>
-					Skip
-				</button>
-			{/if}
 			{#if connectionSuccess}
 				<button
 					type="button"
@@ -826,7 +816,7 @@
 					type="button"
 					class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
 					disabled
-					title="Connect a provider first or skip"
+					title="Connect a provider first"
 				>
 					Continue
 				</button>
