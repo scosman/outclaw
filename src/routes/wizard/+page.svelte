@@ -694,7 +694,7 @@
 							</div>
 							<p class="mt-1 text-sm {whatsAppConnected ? 'text-emerald-400/80' : 'text-zinc-400'}">
 								{#if whatsAppConnected}
-									Connected! Message yourself (Me) to contact OpenClaw.
+									Connected! Message yourself ('Me' contact) to talk to OpenClaw.
 								{:else}
 									Connect by scanning a QR code with WhatsApp on your phone.
 								{/if}
@@ -709,17 +709,18 @@
 
 			<!-- Telegram Dialog -->
 			{#if showTelegramDialog}
-				<div
-					class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-					onclick={(e) => {
-						if (e.target === e.currentTarget) showTelegramDialog = false;
-					}}
-					onkeydown={(e) => {
-						if (e.key === 'Escape') showTelegramDialog = false;
-					}}
-					role="dialog"
-					aria-modal="true"
-				>
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+				onclick={(e) => {
+					if (e.target === e.currentTarget) showTelegramDialog = false;
+				}}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') showTelegramDialog = false;
+				}}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
 					<div class="w-full max-w-lg rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
 						<div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
 							<div class="flex items-center gap-3">
@@ -736,6 +737,8 @@
 								type="button"
 								class="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
 								onclick={() => (showTelegramDialog = false)}
+                aria-label="Close"
+                tabindex="0"
 							>
 								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path
@@ -763,17 +766,18 @@
 
 			<!-- WhatsApp Dialog -->
 			{#if showWhatsAppDialog}
-				<div
-					class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-					onclick={(e) => {
-						if (e.target === e.currentTarget) showWhatsAppDialog = false;
-					}}
-					onkeydown={(e) => {
-						if (e.key === 'Escape') showWhatsAppDialog = false;
-					}}
-					role="dialog"
-					aria-modal="true"
-				>
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+				onclick={(e) => {
+					if (e.target === e.currentTarget) showWhatsAppDialog = false;
+				}}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') showWhatsAppDialog = false;
+				}}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
 					<div class="w-full max-w-2xl rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
 						<div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
 							<div class="flex items-center gap-3">
@@ -793,6 +797,8 @@
 								type="button"
 								class="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
 								onclick={() => (showWhatsAppDialog = false)}
+                tabindex="0"
+                aria-label="Close"
 							>
 								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path
