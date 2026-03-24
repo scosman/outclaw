@@ -41,7 +41,7 @@
 				{/if}
 			</p>
 
-			{#if dockerStore.isNotInstalled || true}
+			{#if dockerStore.isNotInstalled}
 				<a
 					href="https://www.docker.com/products/docker-desktop"
 					target="_blank"
