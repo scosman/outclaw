@@ -7,6 +7,7 @@
 	import DockerOverlay from '$lib/components/DockerOverlay.svelte';
 	import WobbleCrab from '$lib/components/WobbleCrab.svelte';
 	import { dockerStore } from '$lib/stores/docker.svelte';
+	import { instancesStore } from '$lib/stores/instances.svelte';
 
 	let { children } = $props();
 
@@ -22,9 +23,10 @@
 		}
 	}
 
-	// Initialize Docker store once at the layout level
+	// Initialize stores once at the layout level
 	onMount(() => {
 		dockerStore.initialize();
+		instancesStore.initialize();
 
 		// Set up window focus/blur listeners to adjust poller interval
 		const setupListeners = async () => {
@@ -44,6 +46,7 @@
 
 		return () => {
 			dockerStore.cleanup();
+			instancesStore.cleanup();
 			if (unlistenFocus) unlistenFocus();
 			if (unlistenBlur) unlistenBlur();
 		};

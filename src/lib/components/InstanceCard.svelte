@@ -28,8 +28,16 @@
 	const hasError = $derived(effectiveState === 'error');
 	const isDockerNotRunning = $derived(effectiveState === 'docker-not-running');
 
+	// Navigate to instance detail page when card is clicked
+	function handleCardClick(e: MouseEvent) {
+		// Don't navigate if clicking on a button or link
+		if ((e.target as HTMLElement).closest('button, a')) return;
+		goto(`/instances/${instance.id}`);
+	}
+
 	// Open gateway in browser
-	async function handleOpen() {
+	async function handleOpen(e: MouseEvent) {
+		e.stopPropagation(); // Prevent card click
 		try {
 			await invoke('open_in_browser', { url: getGatewayUrl(instance) });
 		} catch (error) {
@@ -38,7 +46,8 @@
 	}
 
 	// Start instance
-	async function handleStart() {
+	async function handleStart(e: MouseEvent) {
+		e.stopPropagation(); // Prevent card click
 		if (actionInProgress) return;
 		actionInProgress = 'start';
 		isLoading = true;
@@ -53,7 +62,8 @@
 	}
 
 	// Stop instance
-	async function handleStop() {
+	async function handleStop(e: MouseEvent) {
+		e.stopPropagation(); // Prevent card click
 		if (actionInProgress) return;
 		actionInProgress = 'stop';
 		isLoading = true;
@@ -68,7 +78,8 @@
 	}
 
 	// Restart instance
-	async function handleRestart() {
+	async function handleRestart(e: MouseEvent) {
+		e.stopPropagation(); // Prevent card click
 		if (actionInProgress) return;
 		actionInProgress = 'restart';
 		isLoading = true;
@@ -83,13 +94,18 @@
 	}
 
 	// Navigate to instance detail page
-	function handleDetails() {
+	function handleDetails(e: MouseEvent) {
+		e.stopPropagation(); // Prevent card click
 		goto(`/instances/${instance.id}`);
 	}
 </script>
 
 <div
-	class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-900"
+	class="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-900"
+	onclick={handleCardClick}
+	onkeydown={(e) => e.key === 'Enter' && handleCardClick(e as unknown as MouseEvent)}
+	role="button"
+	tabindex="0"
 >
 	<div class="mb-3 flex items-start justify-between">
 		<div class="flex items-center gap-2">

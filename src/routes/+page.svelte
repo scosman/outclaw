@@ -1,14 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { instancesStore } from '$lib/stores/instances.svelte';
 	import InstanceCard from '$lib/components/InstanceCard.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
-
-	onMount(() => {
-		instancesStore.initialize();
-		return instancesStore.cleanup;
-	});
 
 	function handleAddInstance() {
 		goto('/wizard');

@@ -103,6 +103,9 @@ export const instancesStore = {
 	get loading() {
 		return loading;
 	},
+	get initialized() {
+		return initialized;
+	},
 	get instanceList() {
 		return instanceList;
 	},
