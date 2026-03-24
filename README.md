@@ -14,8 +14,8 @@ Setting up OpenClaw normally means cloning repos, editing config files, and runn
 
 - **Easy to use app.** OutClaw walks you through everything step by step — Docker setup, configuration, building, and connecting your AI provider and chat channels. No command line. No guesswork.
 - **Runs Everywhere.** MacOS, Windows and Linux
-- **Secure by default.** The agent runs inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first. See [Security Info](./SECURITY.md) for details.
-- **Run multiple instances of OpenClaw side by side.** Each OpenClaw instance is fully isolated — its own config, its own container, its own workspace. Run one or five, update them independently. Host it for friends and family.
+- **More secure by default.** OpenClaw runs inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first. See [Security Info](./SECURITY.md) for details.
+- **Run multiple instances of OpenClaw side by side.** Each OpenClaw instance is fully isolated — its own config, its own container, its own workspace. Run one or many. Update them independently. Host it for friends and family.
 
 ## Getting Started
 
@@ -29,3 +29,7 @@ That's it. The wizard handles the rest — building the Docker image, configurin
 
 - macOS, Windows, or Linux
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+## Security Warning
+
+While OutClaw attempts to make running OpenClaw more secure by running it in a Docker container, running OpenClaw still carries significant risk — you're granting it system access and API keys. Use OpenClaw and OutClaw at your own risk.
