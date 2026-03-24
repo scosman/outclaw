@@ -1,22 +1,20 @@
 # OutClaw
 
-**Get your own AI agent running in minutes — no terminal needed.**
+**Install OpenClaw in 2 minutes. Secure Docker container.** [![CI](https://github.com/scosman/outclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/scosman/outclaw/actions/workflows/ci.yml)
 
-OutClaw is a desktop app that sets up and manages [OpenClaw](https://github.com/openclaw) for you. Instead of wrestling with Docker commands, config files, and setup scripts, you get a guided wizard that does it all.
+OutClaw is a desktop app that sets up and manages [OpenClaw](https://github.com/openclaw) for you. Instead of wrestling with terminal commands, config files, and setup scripts, you get a guided wizard that sets up a secure-by-default installation.
 
-<!-- TODO: ![OutClaw screenshot](screenshot.png) -->
+[**Download the Latest Release**](https://github.com/scosman/outclaw/releases)
+
+https://github.com/user-attachments/assets/f6b7177e-8692-41e0-b210-a43c64037de1
 
 ## Why OutClaw?
 
 Setting up OpenClaw normally means cloning repos, editing config files, and running shell scripts. OutClaw removes all of that:
 
-- **Just click through a wizard.** OutClaw walks you through everything step by step — Docker setup, configuration, building, and connecting your AI provider and chat channels. No command line. No guesswork.
-
-- **Secure by default.** The agent runs sandboxed inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first.
-
-- **Run multiple agents side by side.** Each OpenClaw instance is fully isolated — its own config, its own container, its own workspace. Run one or five, update them independently.
-
-- **Roll back anytime.** Every config change and image rebuild is versioned. Made a mistake? Restore a previous version in one click.
+- **Easy to use.** OutClaw walks you through everything step by step — Docker setup, configuration, building, and connecting your AI provider and chat channels. No command line. No guesswork.
+- **Secure by default.** The agent runs inside Docker with no access to your system. If you want to open things up, you can — but you'll see clear warnings first.
+- **Run multiple instances of OpenClaw side by side.** Each OpenClaw instance is fully isolated — its own config, its own container, its own workspace. Run one or five, update them independently. Host it for friends and family.
 
 ## Getting Started
 
