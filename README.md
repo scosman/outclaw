@@ -33,3 +33,7 @@ That's it. The wizard handles the rest — building the Docker image, configurin
 ## Security Warning
 
 While OutClaw attempts to make running OpenClaw more secure by running it in a Docker container, running OpenClaw still carries significant risk — you're granting it system access and API keys. Use OpenClaw and OutClaw at your own risk.
+
+## Status: Alpha Development
+
+OutClaw is in early development. Expect rough edges and bugs. It is not yet recommended for production use.
