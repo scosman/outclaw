@@ -34,6 +34,7 @@ tokio-util = "0.7"
 flate2 = "1"
 tar = "0.4"
 regex = "1"
+fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
 
 [dev-dependencies]
 tempfile = "3"
