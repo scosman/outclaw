@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
 use tokio::sync::RwLock;
-use tokio::time::interval;
+use tokio::time::sleep;
 use tracing::{debug, error, info};
 
 use crate::commands::instances::AppState;
@@ -33,22 +33,22 @@ impl Poller {
         let cancel_token = self.cancel_token.clone();
 
         tokio::spawn(async move {
-            let mut ticker = interval(*self.interval.read().await);
             let mut last_docker_state: Option<DockerState> = None;
             let mut last_instance_states: HashMap<String, InstanceStatus> = HashMap::new();
 
             info!("Status poller started");
 
             loop {
+                // Get the current interval
+                let current_interval = *self.interval.read().await;
+
+                // Wait for the interval or cancellation
                 tokio::select! {
                     _ = cancel_token.cancelled() => {
                         info!("Status poller stopped");
                         break;
                     }
-                    _ = ticker.tick() => {
-                        let current_interval = *self.interval.read().await;
-                        ticker = interval(current_interval);
-
+                    _ = sleep(current_interval) => {
                         // Check Docker status
                         match state.docker_cli.check_available().await {
                             Ok(docker_status) => {

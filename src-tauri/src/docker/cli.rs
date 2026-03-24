@@ -301,10 +301,26 @@ impl DockerCli {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        debug!(
+            "docker ps stdout: {}",
+            stdout.chars().take(500).collect::<String>()
+        );
+
         let containers: Vec<ContainerInfo> = stdout
             .lines()
             .filter(|l| !l.is_empty())
-            .filter_map(|l| serde_json::from_str(l).ok())
+            .filter_map(|l| {
+                let result: std::result::Result<ContainerInfo, serde_json::Error> =
+                    serde_json::from_str(l);
+                if let Err(e) = &result {
+                    debug!(
+                        "Failed to parse container JSON: {:?} | line: {}",
+                        e,
+                        l.chars().take(100).collect::<String>()
+                    );
+                }
+                result.ok()
+            })
             .collect();
 
         debug!("Found {} containers", containers.len());
@@ -502,8 +518,86 @@ pub struct ContainerInfo {
     pub state: String,
     #[serde(rename = "Status")]
     pub status: String,
-    #[serde(default, rename = "Labels")]
+    #[serde(default, rename = "Labels", deserialize_with = "deserialize_labels")]
     pub labels: HashMap<String, String>,
+}
+
+/// Custom deserializer for Labels that handles both string (docker ps) and map (docker inspect) formats
+fn deserialize_labels<'de, D>(
+    deserializer: D,
+) -> std::result::Result<HashMap<String, String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    // Handle both string and map formats
+    let value: serde_json::Value = serde::Deserialize::deserialize(deserializer)?;
+
+    match value {
+        serde_json::Value::Object(map) => {
+            // Map format (from docker inspect)
+            let mut result = HashMap::new();
+            for (k, v) in map {
+                if let Some(s) = v.as_str() {
+                    result.insert(k, s.to_string());
+                }
+            }
+            Ok(result)
+        }
+        serde_json::Value::String(s) => {
+            // String format (from docker ps): "key1=value1,key2=value2"
+            let mut result = HashMap::new();
+            if !s.is_empty() {
+                // Parse key=value pairs, handling values that may contain commas
+                // by looking for ",key=" pattern
+                let mut remaining = s.as_str();
+                while !remaining.is_empty() {
+                    // Find the first '=' to get the key
+                    if let Some(eq_pos) = remaining.find('=') {
+                        let key = remaining[..eq_pos].to_string();
+                        let value_start = eq_pos + 1;
+
+                        // Find the next ",key=" pattern
+                        let value_end = find_next_key_start(&remaining[value_start..]);
+                        let value = remaining[value_start..value_start + value_end].to_string();
+
+                        result.insert(key, value);
+                        remaining = &remaining[value_start + value_end..];
+                        // Skip the comma separator
+                        if remaining.starts_with(',') {
+                            remaining = &remaining[1..];
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            Ok(result)
+        }
+        _ => Ok(HashMap::new()),
+    }
+}
+
+/// Find where the next key starts (looks for ",key=" pattern)
+fn find_next_key_start(s: &str) -> usize {
+    // Look for ",<key>=" pattern where key doesn't contain = or special chars
+    for (i, c) in s.char_indices() {
+        if c == ',' {
+            // Check if what follows looks like a key (letters, numbers, dots, dashes, underscores)
+            // followed by '='
+            let rest = &s[i + 1..];
+            if let Some(eq_pos) = rest.find('=') {
+                let potential_key = &rest[..eq_pos];
+                // Valid docker label keys contain only alphanumeric, dots, dashes, underscores
+                if potential_key
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
+                {
+                    return i;
+                }
+            }
+        }
+    }
+    s.len()
 }
 
 impl ContainerInfo {

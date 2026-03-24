@@ -169,8 +169,10 @@ mod tests {
     #[test]
     fn test_validate_port_valid() {
         let instances = vec![];
-        // Use a high port that's unlikely to be in use
-        let test_port = 54321;
+        // Find an actually available port by binding to port 0
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let test_port = listener.local_addr().unwrap().port();
+        drop(listener); // Free the port before validation
         let result = validate_port(test_port, None, &instances);
         assert!(result.is_ok());
     }
@@ -196,15 +198,16 @@ mod tests {
 
     #[test]
     fn test_validate_port_excludes_self() {
-        // Use a high port that's unlikely to be in use
-        let test_port = 54321;
+        // Find an actually available port
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let test_port = listener.local_addr().unwrap().port();
+        drop(listener); // Free the port before validation
+
         let instances = vec![create_test_instance("ec_1", test_port, test_port + 1)];
 
-        // When instance_id matches, should allow the port (assuming port is free at OS level)
+        // When instance_id matches, should allow the port
         let result = validate_port(test_port, Some("ec_1"), &instances);
-        // This might still fail if port is actually in use by system, but not due to our check
-        if let Err(OutClawError::PortInUse(_)) = result {
-            panic!("Port should be allowed for same instance");
-        }
+        // This should pass because we're excluding self
+        assert!(result.is_ok());
     }
 }
