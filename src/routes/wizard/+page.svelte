@@ -539,7 +539,10 @@
 										// 30 second timeout for provider connection
 										const timeoutMs = 30000;
 										const timeoutPromise = new Promise<never>((_, reject) =>
-											setTimeout(() => reject(new Error('Connection timed out. Please try again.')), timeoutMs)
+											setTimeout(
+												() => reject(new Error('Connection timed out. Please try again.')),
+												timeoutMs
+											)
 										);
 
 										try {
