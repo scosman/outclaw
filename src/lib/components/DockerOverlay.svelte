@@ -46,7 +46,7 @@
 					href="https://www.docker.com/products/docker-desktop"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+					class="inline-block rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
 				>
 					Download Docker Desktop
 				</a>
