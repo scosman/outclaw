@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
-use tokio::sync::RwLock;
-use tokio::time::sleep;
+use tokio::sync::{Notify, RwLock};
+use tokio::time::{sleep, Instant};
 use tracing::{debug, error, info};
 
 use crate::commands::instances::AppState;
@@ -17,6 +17,8 @@ use crate::instance::{DockerState, InstanceState, InstanceStatus};
 pub struct Poller {
     interval: RwLock<Duration>,
     cancel_token: tokio_util::sync::CancellationToken,
+    /// Notifies the poller to wake up immediately (e.g., on focus change)
+    wake_notify: Notify,
 }
 
 impl Poller {
@@ -25,6 +27,7 @@ impl Poller {
         Self {
             interval: RwLock::new(Duration::from_secs(5)),
             cancel_token: tokio_util::sync::CancellationToken::new(),
+            wake_notify: Notify::new(),
         }
     }
 
@@ -41,54 +44,83 @@ impl Poller {
             loop {
                 // Get the current interval
                 let current_interval = *self.interval.read().await;
+                let deadline = Instant::now() + current_interval;
 
-                // Wait for the interval or cancellation
+                // Wait for the interval, cancellation, or wake notification
                 tokio::select! {
                     _ = cancel_token.cancelled() => {
                         info!("Status poller stopped");
                         break;
                     }
-                    _ = sleep(current_interval) => {
-                        // Check Docker status
-                        match state.docker_cli.check_available().await {
-                            Ok(docker_status) => {
-                                // Emit if changed
-                                if last_docker_state != Some(docker_status.state) {
-                                    debug!("Docker state changed: {:?}", docker_status.state);
-                                    last_docker_state = Some(docker_status.state);
+                    _ = self.wake_notify.notified() => {
+                        // Woken up (e.g., focus changed) - poll immediately
+                        debug!("Poller woken up, polling immediately");
+                    }
+                    _ = sleep_until(deadline) => {
+                        // Normal interval elapsed
+                    }
+                }
 
-                                    if let Err(e) = app_handle.emit("docker-status-changed", &docker_status) {
-                                        error!("Failed to emit docker-status-changed: {}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                error!("Failed to check Docker status: {}", e);
+                // Poll Docker and instance status
+                match state.docker_cli.check_available().await {
+                    Ok(docker_status) => {
+                        // Emit if changed
+                        if last_docker_state != Some(docker_status.state) {
+                            debug!("Docker state changed: {:?}", docker_status.state);
+                            last_docker_state = Some(docker_status.state);
+
+                            if let Err(e) = app_handle.emit("docker-status-changed", &docker_status)
+                            {
+                                error!("Failed to emit docker-status-changed: {}", e);
                             }
                         }
+                    }
+                    Err(e) => {
+                        error!("Failed to check Docker status: {}", e);
+                    }
+                }
 
-                        // Check instance statuses (only if Docker is running)
-                        if last_docker_state == Some(DockerState::Running) {
+                // Check instance statuses (only if Docker is running)
+                if last_docker_state == Some(DockerState::Running) {
+                    // Single docker call to get all outclaw containers
+                    match get_all_instance_statuses(&state.docker_cli).await {
+                        Ok(instance_statuses) => {
                             if let Ok(instances) = state.instance_manager.list() {
                                 for config in instances {
-                                    // Query Docker for container status
-                                    let status = get_instance_status(&state.docker_cli, &config.id, &config.container_id).await;
+                                    let status = instance_statuses
+                                        .get(&config.id)
+                                        .cloned()
+                                        .unwrap_or(InstanceStatus {
+                                            state: InstanceState::Stopped,
+                                            container_id: None,
+                                            error_message: None,
+                                        });
 
                                     // Emit if changed
                                     let last_status = last_instance_states.get(&config.id);
                                     if last_status.map(|s| &s.state) != Some(&status.state) {
-                                        debug!("Instance {} state changed: {:?}", config.id, status.state);
-                                        last_instance_states.insert(config.id.clone(), status.clone());
+                                        debug!(
+                                            "Instance {} state changed: {:?}",
+                                            config.id, status.state
+                                        );
+                                        last_instance_states
+                                            .insert(config.id.clone(), status.clone());
 
-                                        if let Err(e) = app_handle.emit("instance-status-changed", serde_json::json!({
-                                            "id": config.id,
-                                            "status": status
-                                        })) {
+                                        if let Err(e) = app_handle.emit(
+                                            "instance-status-changed",
+                                            serde_json::json!({
+                                                "id": config.id,
+                                                "status": status
+                                            }),
+                                        ) {
                                             error!("Failed to emit instance-status-changed: {}", e);
                                         }
                                     }
                                 }
                             }
+                        }
+                        Err(e) => {
+                            error!("Failed to get instance statuses: {}", e);
                         }
                     }
                 }
@@ -101,10 +133,15 @@ impl Poller {
         self.cancel_token.cancel();
     }
 
-    /// Set the polling interval
-    pub async fn set_interval(&self, duration: Duration) {
-        *self.interval.write().await = duration;
-        debug!("Poller interval set to {:?}", duration);
+    /// Set the polling interval and wake the poller to apply immediately
+    pub fn set_interval(&self, duration: Duration) {
+        // Use blocking write since this is called from a Tauri command
+        if let Ok(mut interval) = self.interval.try_write() {
+            *interval = duration;
+            debug!("Poller interval set to {:?}", duration);
+        }
+        // Wake the poller to apply the new interval immediately
+        self.wake_notify.notify_one();
     }
 }
 
@@ -120,41 +157,45 @@ pub const FOREGROUND_INTERVAL: Duration = Duration::from_secs(5);
 /// Default background polling interval (30 seconds)
 pub const BACKGROUND_INTERVAL: Duration = Duration::from_secs(30);
 
-/// Get the status of a single instance
-async fn get_instance_status(
+/// Get status of all outclaw instances in a single docker call
+async fn get_all_instance_statuses(
     docker_cli: &DockerCli,
-    instance_id: &str,
-    _container_id: &str,
-) -> InstanceStatus {
-    // Try to find the container by label
-    match docker_cli
-        .list_containers(&format!("outclaw.instance={}", instance_id))
+) -> Result<HashMap<String, InstanceStatus>, String> {
+    // List all containers with outclaw.instance label (empty filter matches all)
+    let containers = docker_cli
+        .list_containers("outclaw.instance")
         .await
-    {
-        Ok(containers) => {
-            if let Some(container) = containers.first() {
-                InstanceStatus {
-                    state: if container.is_running() {
-                        InstanceState::Running
-                    } else {
-                        InstanceState::Stopped
-                    },
-                    container_id: Some(container.id.clone()),
-                    error_message: None,
-                }
-            } else {
-                // Container doesn't exist
-                InstanceStatus {
+        .map_err(|e| e.to_string())?;
+
+    let mut statuses: HashMap<String, InstanceStatus> = HashMap::new();
+
+    for container in containers {
+        // Get instance ID from label
+        if let Some(instance_id) = container.labels.get("outclaw.instance") {
+            let entry = statuses
+                .entry(instance_id.clone())
+                .or_insert(InstanceStatus {
                     state: InstanceState::Stopped,
                     container_id: None,
                     error_message: None,
-                }
+                });
+
+            // If any container for this instance is running, mark as running
+            if container.is_running() {
+                entry.state = InstanceState::Running;
+            }
+
+            // Store the container ID (use the first/primary one)
+            if entry.container_id.is_none() {
+                entry.container_id = Some(container.id.clone());
             }
         }
-        Err(e) => InstanceStatus {
-            state: InstanceState::Error,
-            container_id: None,
-            error_message: Some(format!("Failed to query Docker: {}", e)),
-        },
     }
+
+    Ok(statuses)
+}
+
+/// Sleep until a specific deadline
+async fn sleep_until(deadline: Instant) {
+    sleep(deadline.saturating_duration_since(Instant::now())).await;
 }

@@ -51,17 +51,14 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
 /// Set the poller interval based on window focus state
 /// focused: true = foreground (5s), false = background (30s)
 #[tauri::command]
-pub async fn set_poller_interval(
-    focused: bool,
-    state: State<'_, PollerState>,
-) -> Result<(), String> {
+pub fn set_poller_interval(focused: bool, state: State<'_, PollerState>) -> Result<(), String> {
     let interval = if focused {
         FOREGROUND_INTERVAL
     } else {
         BACKGROUND_INTERVAL
     };
 
-    state.poller.set_interval(interval).await;
+    state.poller.set_interval(interval);
 
     tracing::debug!(
         "Poller interval set to {}s (window {})",
