@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { invoke } from '@tauri-apps/api/core';
+	import { goto } from '$app/navigation';
 	import type { InstanceWithStatus } from '$lib/types/instance';
 	import { formatInstanceState, getGatewayUrl } from '$lib/types/instance';
+	import { dockerStore } from '$lib/stores/docker.svelte';
 	import StatusDot from './StatusDot.svelte';
 
 	interface Props {
@@ -9,10 +12,80 @@
 
 	let { instance }: Props = $props();
 
-	// Action buttons are placeholder/disabled - wired in Phase 7
-	const isRunning = $derived(instance.status.state === 'running');
-	const isStopped = $derived(instance.status.state === 'stopped');
-	const hasError = $derived(instance.status.state === 'error');
+	// Track loading states for actions
+	let isLoading = $state(false);
+	let actionInProgress = $state<string | null>(null);
+
+	// Check if Docker is running
+	const dockerAvailable = $derived(dockerStore.isRunning);
+
+	// Determine effective state based on Docker availability
+	const effectiveState = $derived(dockerAvailable ? instance.status.state : 'docker-not-running');
+
+	// Computed state flags
+	const isRunning = $derived(effectiveState === 'running');
+	const isStopped = $derived(effectiveState === 'stopped');
+	const hasError = $derived(effectiveState === 'error');
+	const isDockerNotRunning = $derived(effectiveState === 'docker-not-running');
+
+	// Open gateway in browser
+	async function handleOpen() {
+		try {
+			await invoke('open_in_browser', { url: getGatewayUrl(instance) });
+		} catch (error) {
+			console.error('Failed to open browser:', error);
+		}
+	}
+
+	// Start instance
+	async function handleStart() {
+		if (actionInProgress) return;
+		actionInProgress = 'start';
+		isLoading = true;
+		try {
+			await invoke('start_instance', { id: instance.id });
+		} catch (error) {
+			console.error('Failed to start instance:', error);
+		} finally {
+			isLoading = false;
+			actionInProgress = null;
+		}
+	}
+
+	// Stop instance
+	async function handleStop() {
+		if (actionInProgress) return;
+		actionInProgress = 'stop';
+		isLoading = true;
+		try {
+			await invoke('stop_instance', { id: instance.id });
+		} catch (error) {
+			console.error('Failed to stop instance:', error);
+		} finally {
+			isLoading = false;
+			actionInProgress = null;
+		}
+	}
+
+	// Restart instance
+	async function handleRestart() {
+		if (actionInProgress) return;
+		actionInProgress = 'restart';
+		isLoading = true;
+		try {
+			await invoke('restart_instance', { id: instance.id });
+		} catch (error) {
+			console.error('Failed to restart instance:', error);
+		} finally {
+			isLoading = false;
+			actionInProgress = null;
+		}
+	}
+
+	// Navigate to instance detail page
+	function handleDetails() {
+		goto(`/instances/${instance.id}`);
+	}
 </script>
 
 <div
@@ -20,7 +93,7 @@
 >
 	<div class="mb-3 flex items-start justify-between">
 		<div class="flex items-center gap-2">
-			<StatusDot state={instance.status.state} />
+			<StatusDot state={effectiveState} />
 			<h3 class="font-medium text-zinc-100">{instance.name}</h3>
 		</div>
 		<span class="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
@@ -29,7 +102,7 @@
 	</div>
 
 	<div class="mb-4 flex items-center gap-4 text-sm text-zinc-500">
-		<span>{formatInstanceState(instance.status.state)}</span>
+		<span>{formatInstanceState(effectiveState)}</span>
 		{#if isRunning}
 			<span class="text-zinc-600">|</span>
 			<a
@@ -47,45 +120,75 @@
 		<p class="mb-4 text-sm text-red-400">{instance.status.error_message}</p>
 	{/if}
 
-	<!-- Action buttons - placeholder/disabled for Phase 3, wired in Phase 7 -->
+	<!-- Action buttons - wired in Phase 7 -->
 	<div class="flex gap-2">
-		{#if isRunning}
+		{#if isDockerNotRunning}
+			<!-- No actions available when Docker is not running -->
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-500"
 				disabled
-				title="Open gateway in browser (Phase 7)"
+				title="Docker is not running"
 			>
-				Open
+				Docker Not Running
+			</button>
+		{:else if isRunning}
+			<button
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+				onclick={handleOpen}
+				disabled={isLoading}
+				title="Open gateway in browser"
+			>
+				{#if actionInProgress === 'open'}
+					<span class="opacity-50">Opening...</span>
+				{:else}
+					Open
+				{/if}
 			</button>
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-				disabled
-				title="Stop instance (Phase 7)"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+				onclick={handleStop}
+				disabled={isLoading}
+				title="Stop instance"
 			>
-				Stop
+				{#if actionInProgress === 'stop'}
+					<span class="opacity-50">Stopping...</span>
+				{:else}
+					Stop
+				{/if}
 			</button>
 		{:else if isStopped}
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-				disabled
-				title="Start instance (Phase 7)"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+				onclick={handleStart}
+				disabled={isLoading}
+				title="Start instance"
 			>
-				Start
+				{#if actionInProgress === 'start'}
+					<span class="opacity-50">Starting...</span>
+				{:else}
+					Start
+				{/if}
 			</button>
 		{:else if hasError}
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-				disabled
-				title="View details (Phase 7)"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+				onclick={handleDetails}
+				disabled={isLoading}
+				title="View instance details"
 			>
 				Details
 			</button>
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-				disabled
-				title="Restart instance (Phase 7)"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+				onclick={handleRestart}
+				disabled={isLoading}
+				title="Restart instance"
 			>
-				Restart
+				{#if actionInProgress === 'restart'}
+					<span class="opacity-50">Restarting...</span>
+				{:else}
+					Restart
+				{/if}
 			</button>
 		{/if}
 	</div>

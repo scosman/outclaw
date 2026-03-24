@@ -2,13 +2,15 @@ import { SvelteMap } from 'svelte/reactivity';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { InstanceWithStatus, InstanceStatus } from '$lib/types/instance';
+import type { DockerStatus } from '$lib/types/instance';
 
 // Reactive state using Svelte 5 runes (module-level, shared)
 let instances = new SvelteMap<string, InstanceWithStatus>();
 let loading = $state(true);
 let initialized = $state(false);
 
-let unlisten: UnlistenFn | null = null;
+let unlistenInstance: UnlistenFn | null = null;
+let unlistenDocker: UnlistenFn | null = null;
 
 // Initialize the store (call once)
 async function initialize() {
@@ -27,7 +29,7 @@ async function initialize() {
 	}
 
 	// Listen for instance status changes from the backend poller
-	unlisten = await listen<{ id: string; status: InstanceStatus }>(
+	unlistenInstance = await listen<{ id: string; status: InstanceStatus }>(
 		'instance-status-changed',
 		(event) => {
 			const { id, status } = event.payload;
@@ -37,13 +39,38 @@ async function initialize() {
 			}
 		}
 	);
+
+	// Listen for Docker status changes to update all instances when Docker stops
+	unlistenDocker = await listen<DockerStatus>('docker-status-changed', (event) => {
+		const dockerStatus = event.payload;
+
+		// When Docker is not running, update all instance statuses
+		if (dockerStatus.state !== 'running') {
+			for (const [id, instance] of instances) {
+				if (instance.status.state !== 'docker-not-running') {
+					instances.set(id, {
+						...instance,
+						status: {
+							...instance.status,
+							state: 'docker-not-running',
+							error_message: undefined
+						}
+					});
+				}
+			}
+		}
+	});
 }
 
 // Cleanup function
 function cleanup() {
-	if (unlisten) {
-		unlisten();
-		unlisten = null;
+	if (unlistenInstance) {
+		unlistenInstance();
+		unlistenInstance = null;
+	}
+	if (unlistenDocker) {
+		unlistenDocker();
+		unlistenDocker = null;
 	}
 }
 

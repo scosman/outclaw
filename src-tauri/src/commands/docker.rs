@@ -1,5 +1,9 @@
+use tauri::State;
+
 use crate::docker::DockerCli;
 use crate::instance::{DockerState, DockerStatus};
+use crate::poller::{BACKGROUND_INTERVAL, FOREGROUND_INTERVAL};
+use crate::PollerState;
 
 /// Check Docker availability
 #[tauri::command]
@@ -42,4 +46,28 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
         state,
         compose_available,
     })
+}
+
+/// Set the poller interval based on window focus state
+/// focused: true = foreground (5s), false = background (30s)
+#[tauri::command]
+pub async fn set_poller_interval(
+    focused: bool,
+    state: State<'_, PollerState>,
+) -> Result<(), String> {
+    let interval = if focused {
+        FOREGROUND_INTERVAL
+    } else {
+        BACKGROUND_INTERVAL
+    };
+
+    state.poller.set_interval(interval).await;
+
+    tracing::debug!(
+        "Poller interval set to {}s (window {})",
+        interval.as_secs(),
+        if focused { "focused" } else { "blurred" }
+    );
+
+    Ok(())
 }

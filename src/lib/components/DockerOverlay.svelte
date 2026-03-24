@@ -41,14 +41,15 @@
 				{/if}
 			</p>
 
-			{#if dockerStore.isNotInstalled}
-				<div class="rounded-lg bg-zinc-800 p-4 text-left">
-					<pre class="overflow-x-auto text-xs text-zinc-300"># Install Docker Desktop
-# macOS:
-brew install --cask docker
-
-# Or download from: https://www.docker.com/products/docker-desktop</pre>
-				</div>
+			{#if dockerStore.isNotInstalled || true}
+				<a
+					href="https://www.docker.com/products/docker-desktop"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+				>
+					Download Docker Desktop
+				</a>
 			{:else if dockerStore.isNotRunning}
 				<div class="flex flex-col items-center">
 					<div class="animate-pulse text-zinc-500">

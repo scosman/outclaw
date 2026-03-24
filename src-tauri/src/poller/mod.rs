@@ -114,6 +114,12 @@ impl Default for Poller {
     }
 }
 
+/// Default foreground polling interval (5 seconds)
+pub const FOREGROUND_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Default background polling interval (30 seconds)
+pub const BACKGROUND_INTERVAL: Duration = Duration::from_secs(30);
+
 /// Get the status of a single instance
 async fn get_instance_status(
     docker_cli: &DockerCli,

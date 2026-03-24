@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import '../app.css';
 	import DockerStatusPill from '$lib/components/DockerStatusPill.svelte';
 	import DockerOverlay from '$lib/components/DockerOverlay.svelte';
@@ -8,10 +10,43 @@
 
 	let { children } = $props();
 
+	let unlistenFocus: UnlistenFn | null = null;
+	let unlistenBlur: UnlistenFn | null = null;
+
+	// Set poller interval based on window focus state
+	async function setPollerInterval(focused: boolean) {
+		try {
+			await invoke('set_poller_interval', { focused });
+		} catch (error) {
+			console.error('Failed to set poller interval:', error);
+		}
+	}
+
 	// Initialize Docker store once at the layout level
 	onMount(() => {
 		dockerStore.initialize();
-		return dockerStore.cleanup;
+
+		// Set up window focus/blur listeners to adjust poller interval
+		const setupListeners = async () => {
+			unlistenFocus = await listen('tauri://focus', () => {
+				setPollerInterval(true);
+			});
+
+			unlistenBlur = await listen('tauri://blur', () => {
+				setPollerInterval(false);
+			});
+
+			// Set initial interval (window starts focused)
+			await setPollerInterval(true);
+		};
+
+		setupListeners();
+
+		return () => {
+			dockerStore.cleanup();
+			if (unlistenFocus) unlistenFocus();
+			if (unlistenBlur) unlistenBlur();
+		};
 	});
 </script>
 

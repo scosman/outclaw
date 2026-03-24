@@ -13,6 +13,12 @@ use tauri::Manager;
 
 pub use error::OutClawError;
 
+/// Wrapper to manage poller state across the app
+#[derive(Clone)]
+pub struct PollerState {
+    pub poller: Arc<Poller>,
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -21,11 +27,15 @@ pub fn run() {
 
     let app_state = AppState::new();
     let poller = Arc::new(Poller::new());
+    let poller_state = PollerState {
+        poller: poller.clone(),
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(app_state)
+        .manage(poller_state)
         .setup(move |app| {
             // Start the status poller within Tauri's async runtime
             let app_handle = app.handle().clone();
@@ -40,6 +50,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::docker::check_docker,
+            commands::docker::set_poller_interval,
             commands::instances::list_instances,
             commands::instances::get_instance,
             commands::instances::create_instance,
