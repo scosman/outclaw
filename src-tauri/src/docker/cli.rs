@@ -327,6 +327,34 @@ impl DockerCli {
         Ok(containers)
     }
 
+    /// Get status of all outclaw instances in a single docker call
+    /// Returns a HashMap of instance_id -> (is_running, container_id)
+    pub async fn get_outclaw_instance_statuses(
+        &self,
+    ) -> Result<HashMap<String, (bool, Option<String>)>> {
+        let containers = self.list_containers("outclaw.instance").await?;
+
+        let mut statuses: HashMap<String, (bool, Option<String>)> = HashMap::new();
+
+        for container in containers {
+            if let Some(instance_id) = container.labels.get("outclaw.instance") {
+                let entry = statuses.entry(instance_id.clone()).or_insert((false, None));
+
+                // If any container for this instance is running, mark as running
+                if container.is_running() {
+                    entry.0 = true;
+                }
+
+                // Store the container ID (use the first/primary one)
+                if entry.1.is_none() {
+                    entry.1 = Some(container.id.clone());
+                }
+            }
+        }
+
+        Ok(statuses)
+    }
+
     /// Inspect a container by name or ID
     #[allow(dead_code)]
     pub async fn inspect_container(&self, container_name: &str) -> Result<ContainerInfo> {

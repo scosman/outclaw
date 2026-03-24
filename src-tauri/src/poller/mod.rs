@@ -10,7 +10,6 @@ use tokio::time::{sleep, Instant};
 use tracing::{debug, error, info};
 
 use crate::commands::instances::AppState;
-use crate::docker::DockerCli;
 use crate::instance::{DockerState, InstanceState, InstanceStatus};
 
 /// Background poller for Docker and instance status
@@ -82,14 +81,22 @@ impl Poller {
 
                 // Check instance statuses (only if Docker is running)
                 if last_docker_state == Some(DockerState::Running) {
-                    // Single docker call to get all outclaw containers
-                    match get_all_instance_statuses(&state.docker_cli).await {
+                    // Single docker call to get all outclaw container statuses
+                    match state.docker_cli.get_outclaw_instance_statuses().await {
                         Ok(instance_statuses) => {
                             if let Ok(instances) = state.instance_manager.list() {
                                 for config in instances {
                                     let status = instance_statuses
                                         .get(&config.id)
-                                        .cloned()
+                                        .map(|(running, container_id)| InstanceStatus {
+                                            state: if *running {
+                                                InstanceState::Running
+                                            } else {
+                                                InstanceState::Stopped
+                                            },
+                                            container_id: container_id.clone(),
+                                            error_message: None,
+                                        })
                                         .unwrap_or(InstanceStatus {
                                             state: InstanceState::Stopped,
                                             container_id: None,
@@ -156,44 +163,6 @@ pub const FOREGROUND_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Default background polling interval (30 seconds)
 pub const BACKGROUND_INTERVAL: Duration = Duration::from_secs(30);
-
-/// Get status of all outclaw instances in a single docker call
-async fn get_all_instance_statuses(
-    docker_cli: &DockerCli,
-) -> Result<HashMap<String, InstanceStatus>, String> {
-    // List all containers with outclaw.instance label (empty filter matches all)
-    let containers = docker_cli
-        .list_containers("outclaw.instance")
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let mut statuses: HashMap<String, InstanceStatus> = HashMap::new();
-
-    for container in containers {
-        // Get instance ID from label
-        if let Some(instance_id) = container.labels.get("outclaw.instance") {
-            let entry = statuses
-                .entry(instance_id.clone())
-                .or_insert(InstanceStatus {
-                    state: InstanceState::Stopped,
-                    container_id: None,
-                    error_message: None,
-                });
-
-            // If any container for this instance is running, mark as running
-            if container.is_running() {
-                entry.state = InstanceState::Running;
-            }
-
-            // Store the container ID (use the first/primary one)
-            if entry.container_id.is_none() {
-                entry.container_id = Some(container.id.clone());
-            }
-        }
-    }
-
-    Ok(statuses)
-}
 
 /// Sleep until a specific deadline
 async fn sleep_until(deadline: Instant) {

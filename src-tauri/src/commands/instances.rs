@@ -96,47 +96,44 @@ pub async fn list_instances(state: State<'_, AppState>) -> Result<Vec<InstanceWi
 
     // Build status for each instance
     let mut result = Vec::new();
-    for config in instances {
-        let status = if docker_status.state != crate::instance::DockerState::Running {
-            InstanceStatus {
+
+    if docker_status.state != crate::instance::DockerState::Running {
+        // Docker not running - all instances show docker-not-running
+        for config in instances {
+            let status = InstanceStatus {
                 state: InstanceState::DockerNotRunning,
                 container_id: None,
                 error_message: None,
-            }
-        } else {
-            // Query Docker for actual container status
-            match state
-                .docker_cli
-                .list_containers(&format!("outclaw.instance={}", config.id))
-                .await
-            {
-                Ok(containers) => {
-                    if let Some(container) = containers.first() {
-                        InstanceStatus {
-                            state: if container.is_running() {
-                                InstanceState::Running
-                            } else {
-                                InstanceState::Stopped
-                            },
-                            container_id: Some(container.id.clone()),
-                            error_message: None,
-                        }
+            };
+            result.push(InstanceWithStatus { config, status });
+        }
+    } else {
+        // Single docker call to get all instance statuses
+        let instance_statuses = state
+            .docker_cli
+            .get_outclaw_instance_statuses()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        for config in instances {
+            let status = instance_statuses
+                .get(&config.id)
+                .map(|(running, container_id)| InstanceStatus {
+                    state: if *running {
+                        InstanceState::Running
                     } else {
-                        InstanceStatus {
-                            state: InstanceState::Stopped,
-                            container_id: None,
-                            error_message: None,
-                        }
-                    }
-                }
-                Err(e) => InstanceStatus {
-                    state: InstanceState::Error,
+                        InstanceState::Stopped
+                    },
+                    container_id: container_id.clone(),
+                    error_message: None,
+                })
+                .unwrap_or(InstanceStatus {
+                    state: InstanceState::Stopped,
                     container_id: None,
-                    error_message: Some(format!("Failed to query Docker: {}", e)),
-                },
-            }
-        };
-        result.push(InstanceWithStatus { config, status });
+                    error_message: None,
+                });
+            result.push(InstanceWithStatus { config, status });
+        }
     }
 
     info!("Found {} instances", result.len());
