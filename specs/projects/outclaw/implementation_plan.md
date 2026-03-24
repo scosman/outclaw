@@ -15,7 +15,7 @@ status: complete
 - [x] Phase 5: Docker build pipeline
 - [x] Phase 6: Wizard completion + post-setup flow
 - [x] Phase 7: Instance lifecycle + status polling
-- [ ] Phase 8: Instance detail screen
+- [x] Phase 8: Instance detail screen
 - [ ] Phase 9: Instance management (edit settings, rebuild, delete)
 - [ ] Phase 10: Polish, settings, and release pipeline
 
