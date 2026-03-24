@@ -265,7 +265,11 @@ pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(
 
 /// Start an instance
 #[tauri::command]
-pub async fn start_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn start_instance(
+    id: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     info!("Starting instance {}", id);
 
     let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
@@ -281,12 +285,20 @@ pub async fn start_instance(id: String, state: State<'_, AppState>) -> Result<()
         .map_err(|e| e.to_string())?;
 
     info!("Started instance {}", id);
+
+    // Emit updated status immediately
+    emit_instance_status(&id, &app_handle, &state).await;
+
     Ok(())
 }
 
 /// Stop an instance
 #[tauri::command]
-pub async fn stop_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn stop_instance(
+    id: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     info!("Stopping instance {}", id);
 
     let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
@@ -302,18 +314,84 @@ pub async fn stop_instance(id: String, state: State<'_, AppState>) -> Result<(),
         .map_err(|e| e.to_string())?;
 
     info!("Stopped instance {}", id);
+
+    // Emit updated status immediately
+    emit_instance_status(&id, &app_handle, &state).await;
+
     Ok(())
 }
 
 /// Restart an instance
 #[tauri::command]
-pub async fn restart_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn restart_instance(
+    id: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     info!("Restarting instance {}", id);
 
-    stop_instance(id.clone(), state.clone()).await?;
-    start_instance(id, state).await?;
+    let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
+
+    let docker_dir = config.docker_path();
+    let compose_path = docker_dir.join("docker-compose.yml");
+    let project_name = format!("outclaw-{}", config.container_id);
+
+    state
+        .docker_cli
+        .compose_down(&compose_path, &project_name)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    state
+        .docker_cli
+        .compose_up(&compose_path, &project_name)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    info!("Restarted instance {}", id);
+
+    // Emit updated status immediately
+    emit_instance_status(&id, &app_handle, &state).await;
 
     Ok(())
+}
+
+/// Emit instance status to frontend
+async fn emit_instance_status(id: &str, app_handle: &AppHandle, state: &AppState) {
+    // Get the current status from Docker
+    let status = match state.docker_cli.get_outclaw_instance_statuses().await {
+        Ok(statuses) => statuses
+            .get(id)
+            .map(|(running, container_id)| InstanceStatus {
+                state: if *running {
+                    InstanceState::Running
+                } else {
+                    InstanceState::Stopped
+                },
+                container_id: container_id.clone(),
+                error_message: None,
+            })
+            .unwrap_or(InstanceStatus {
+                state: InstanceState::Stopped,
+                container_id: None,
+                error_message: None,
+            }),
+        Err(_) => InstanceStatus {
+            state: InstanceState::Stopped,
+            container_id: None,
+            error_message: None,
+        },
+    };
+
+    if let Err(e) = app_handle.emit(
+        "instance-status-changed",
+        serde_json::json!({
+            "id": id,
+            "status": status
+        }),
+    ) {
+        warn!("Failed to emit instance-status-changed: {}", e);
+    }
 }
 
 /// Build an instance (run full setup pipeline)
