@@ -234,7 +234,15 @@ pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(
     info!("Deleting instance {}", id);
 
     // Get config before deletion to clean up Docker resources
-    let config = state.instance_manager.get(&id).ok();
+    let config = state.instance_manager.get(&id);
+    if config.is_err() {
+        warn!(
+            "Could not get config for instance {} during delete: {:?}",
+            id,
+            config.as_ref().err()
+        );
+    }
+    let config = config.ok();
 
     // Stop and remove container if running
     if let Some(ref cfg) = config {
@@ -243,14 +251,19 @@ pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(
         let project_name = format!("outclaw-{}", cfg.container_id);
 
         // Stop container
-        let _ = state
+        if let Err(e) = state
             .docker_cli
             .compose_down(&compose_path, &project_name)
-            .await;
+            .await
+        {
+            warn!("Failed to stop containers for instance {}: {}", id, e);
+        }
 
         // Remove image
         let image_name = format!("outclaw-{}:latest", cfg.container_id);
-        let _ = state.docker_cli.remove_image(&image_name).await;
+        if let Err(e) = state.docker_cli.remove_image(&image_name).await {
+            warn!("Failed to remove image for instance {}: {}", id, e);
+        }
     }
 
     // Delete instance files

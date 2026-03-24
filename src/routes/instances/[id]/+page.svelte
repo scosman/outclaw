@@ -11,6 +11,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import SectionHeader from '$lib/components/SectionHeader.svelte';
+	import AlertDialog from '$lib/components/ui/AlertDialog.svelte';
 
 	const instanceId = $derived($page.params.id ?? '');
 
@@ -27,6 +28,12 @@
 
 	// Token reveal state
 	let showToken = $state(false);
+
+	// Dialog states
+	let showRebuildDialog = $state(false);
+	let showDeleteDialog = $state(false);
+	let deleting = $state(false);
+	let deleteError = $state<string | null>(null);
 
 	// Computed state flags
 	const dockerAvailable = $derived(dockerStore.isRunning);
@@ -192,6 +199,35 @@
 
 	function getChannelSetupCommand(): string {
 		return `cd ~/.outclaw/docker-containers/${instance?.container_id} && docker compose exec gateway openclaw channels add --channel <channel-name>`;
+	}
+
+	// Rebuild action
+	function handleRebuild() {
+		goto(`/instances/${instanceId}/build?mode=rebuild`);
+	}
+
+	// Delete action
+	async function handleDelete() {
+		if (!instance || deleting) return;
+
+		deleting = true;
+		deleteError = null;
+		try {
+			await invoke('delete_instance', { id: instanceId });
+			// Remove from store
+			instancesStore.removeInstance(instanceId);
+			// Navigate to instance list
+			goto('/');
+		} catch (e) {
+			console.error('Failed to delete instance:', e);
+			deleteError = e instanceof Error ? e.message : 'Failed to delete instance';
+			deleting = false;
+		}
+	}
+
+	function cancelDelete() {
+		showDeleteDialog = false;
+		deleteError = null;
 	}
 </script>
 
@@ -509,8 +545,7 @@
 				</button>
 				<button
 					class="rounded bg-zinc-800 px-4 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
-					disabled
-					title="Coming in Phase 9"
+					onclick={() => (showRebuildDialog = true)}
 				>
 					Rebuild
 				</button>
@@ -545,13 +580,41 @@
 			<p class="mb-4 text-sm text-zinc-400">
 				Deleting this instance will permanently remove all configuration and data.
 			</p>
+			{#if deleteError}
+				<div class="mb-4 rounded border border-red-800/50 bg-red-900/20 p-3">
+					<p class="text-sm text-red-400">{deleteError}</p>
+				</div>
+			{/if}
 			<button
-				class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-				disabled
-				title="Coming in Phase 9"
+				class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+				onclick={() => (showDeleteDialog = true)}
+				disabled={deleting}
 			>
-				Delete Instance
+				{deleting ? 'Deleting...' : 'Delete Instance'}
 			</button>
 		</div>
 	{/if}
 </div>
+
+<!-- Rebuild Confirmation Dialog -->
+<AlertDialog
+	open={showRebuildDialog}
+	title="Rebuild Instance"
+	description="This will rebuild the Docker image for this instance. The instance will be temporarily unavailable during the rebuild process."
+	cancelLabel="Cancel"
+	actionLabel="Rebuild"
+	oncancel={() => (showRebuildDialog = false)}
+	onaction={handleRebuild}
+/>
+
+<!-- Delete Confirmation Dialog -->
+<AlertDialog
+	open={showDeleteDialog}
+	title="Delete Instance"
+	description="Are you sure you want to delete this instance? This will stop the container, remove the Docker image, and delete all instance data including your workspace."
+	cancelLabel="Cancel"
+	actionLabel="Delete"
+	destructive={true}
+	oncancel={cancelDelete}
+	onaction={handleDelete}
+/>

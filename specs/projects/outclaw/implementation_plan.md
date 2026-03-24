@@ -16,7 +16,7 @@ status: complete
 - [x] Phase 6: Wizard completion + post-setup flow
 - [x] Phase 7: Instance lifecycle + status polling
 - [x] Phase 8: Instance detail screen
-- [ ] Phase 9: Instance management (edit settings, rebuild, delete)
+- [x] Phase 9: Instance management (edit settings, rebuild, delete)
 - [ ] Phase 10: Polish, settings, and release pipeline
 
 ---
@@ -224,20 +224,16 @@ Full instance lifecycle management from the detail screen.
 
 ---
 
-### Phase 10: Polish, Settings, and Release Pipeline
+### Phase 10 [CUT]: Polish, Settings, and Release Pipeline
+
+This phase is CUT/POSTPONED. Do not implement.
 
 Final polish pass, app-level settings, and release infrastructure.
 
 **Delivers:**
 
 - Settings modal (gear icon in header): data directory path, app version, GitHub repo link
-- `app-state.json` persistence: save/restore window position and size
-- ASCII art logo finalized: compact version for header, medium for build/complete screens, large for empty state
 - Loading states: skeleton/spinner for instance list initial load, version dropdown loading
 - Smooth transitions between views (if appropriate — keep minimal)
-- Focus-dependent polling wired to Tauri window events
-- GitHub Actions release workflow: triggered on release creation, builds for macOS (Intel + ARM), Windows, Linux using `tauri-apps/tauri-action`
-- Update `AGENTS.md` with actual working check/lint/test commands
-- README with project description, development setup, and build instructions
 
 **Manual test:** Full end-to-end flow: launch app → create instance (Standard + Custom) → view in list → open detail → edit settings → rebuild → stop/start → delete. Window position remembered across restarts. Settings modal shows correct info. Release build produces artifacts.

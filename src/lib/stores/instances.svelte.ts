@@ -89,6 +89,19 @@ function removeInstance(id: string) {
 	instances.delete(id);
 }
 
+// Refresh all instances from backend
+async function refresh() {
+	loading = true;
+	try {
+		const result = await invoke<InstanceWithStatus[]>('list_instances');
+		instances = new SvelteMap(result.map((inst) => [inst.id, inst]));
+	} catch (error) {
+		console.error('Failed to refresh instances:', error);
+	} finally {
+		loading = false;
+	}
+}
+
 // Computed properties
 const instanceList = $derived(Array.from(instances.values()));
 const instanceCount = $derived(instances.size);
@@ -122,5 +135,6 @@ export const instancesStore = {
 	cleanup,
 	getInstance,
 	setInstance,
-	removeInstance
+	removeInstance,
+	refresh
 };
