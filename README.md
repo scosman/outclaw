@@ -1,6 +1,6 @@
 # OutClaw
 
-**Install OpenClaw in 3 minutes, inside a Docker container.** 
+**Install OpenClaw in 3 minutes, inside a Docker container.**
 
 OutClaw is a desktop app that sets up and manages [OpenClaw](https://github.com/openclaw) for you. Instead of wrestling with terminal commands, config files, and setup scripts, you get a guided wizard that sets up a secure-by-default installation.
 
