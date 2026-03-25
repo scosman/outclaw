@@ -1,10 +1,12 @@
 # OutClaw
 
-**Install OpenClaw in 3 minutes, inside a Docker container.** [![CI](https://github.com/scosman/outclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/scosman/outclaw/actions/workflows/ci.yml)
+**Install OpenClaw in 3 minutes, inside a Docker container.** 
 
 OutClaw is a desktop app that sets up and manages [OpenClaw](https://github.com/openclaw) for you. Instead of wrestling with terminal commands, config files, and setup scripts, you get a guided wizard that sets up a secure-by-default installation.
 
 [**Download the Latest Release**](https://github.com/scosman/outclaw/releases)
+
+[![CI](https://github.com/scosman/outclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/scosman/outclaw/actions/workflows/ci.yml)
 
 https://github.com/user-attachments/assets/f6b7177e-8692-41e0-b210-a43c64037de1
 
