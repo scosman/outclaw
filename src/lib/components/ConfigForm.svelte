@@ -422,6 +422,12 @@
 						oninput={() => updateLocalSettings({ home_volume: localSettings.home_volume })}
 					/>
 					<p class="mt-1 text-xs text-zinc-500">Leave empty for default</p>
+					{#if localSettings.home_volume}
+						<p class="mt-1 text-xs text-amber-400">
+							Warning: OpenClaw will have access to resources you provide here. Don't set unless you
+							understand the security implications of this.
+						</p>
+					{/if}
 				</div>
 
 				<!-- Extra Mounts -->
@@ -438,6 +444,12 @@
 						oninput={() => updateLocalSettings({ extra_mounts: localSettings.extra_mounts })}
 					></textarea>
 					<p class="mt-1 text-xs text-zinc-500">Comma-separated volume mount specifications</p>
+					{#if localSettings.extra_mounts}
+						<p class="mt-1 text-xs text-amber-400">
+							Warning: OpenClaw will have access to resources you provide here. Don't set unless you
+							understand the security implications of this.
+						</p>
+					{/if}
 				</div>
 
 				<!-- Allow Insecure WebSocket -->
