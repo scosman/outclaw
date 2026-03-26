@@ -55,7 +55,34 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'OutClaw v__VERSION__'
-          releaseBody: 'See the assets to download and install this version.'
+          releaseBody: |
+            ## Installation
+
+            ### macOS
+
+            1. **Download the right file from Assets Section Below:**
+               - Apple Silicon (M1+, 2020+ Macs): `OutClaw_X.X.X_aarch64.dmg`
+               - Intel (older 2019 and earlier Macs): `OutClaw_X.X.X_x64.dmg`
+               - *Not sure? Apple menu → About This Mac — look for "Apple M" or "Intel".*
+            2. Open the `.dmg` and drag OutClaw to your Applications folder.
+            3. **First launch:** macOS will block the app with a security warning. To fix this, go to **System Settings → Privacy & Security**, scroll to Security, and click **Open Anyway** next to OutClaw. *(This appears because OutClaw is not notarized by Apple)*
+
+            ---
+
+            ### Windows
+
+            1. Download `OutClaw_X.X.X_x64-setup.exe` from Assets section below and run it
+            2. If Windows SmartScreen warns you, click **More info → Run anyway**. *(This appears because OutClaw does not yet have an signing certificate)*
+
+            ---
+
+            ### Linux
+
+            Download the correct file from assets section below, and install the package for your distribution:
+
+            - **Debian/Ubuntu:** `OutClaw_X.X.X_amd64.deb`, then `sudo dpkg -i OutClaw_X.X.X_amd64.deb`
+            - **Fedora/RHEL/openSUSE:** `OutClaw-X.X.X-1.x86_64.rpm`, then `sudo rpm -i OutClaw-X.X.X-1.x86_64.rpm`
+            - **Other distros:** `OutClaw_X.X.X_amd64.AppImage`, then make executable and run: `chmod +x OutClaw_X.X.X_amd64.AppImage && ./OutClaw_X.X.X_amd64.AppImage`
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
