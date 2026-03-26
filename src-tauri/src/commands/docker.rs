@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::docker::DockerCli;
+use crate::docker::{create_command, DockerCli};
 use crate::instance::{DockerState, DockerStatus};
 use crate::poller::{BACKGROUND_INTERVAL, FOREGROUND_INTERVAL};
 use crate::PollerState;
@@ -11,7 +11,7 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
     let docker = DockerCli::new();
 
     // Check if docker binary exists
-    let docker_check = tokio::process::Command::new(&docker.docker_bin)
+    let docker_check = create_command(&docker.docker_bin)
         .arg("--version")
         .output()
         .await;
@@ -24,7 +24,7 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
     }
 
     // Check if Docker daemon is running
-    let info_check = tokio::process::Command::new(&docker.docker_bin)
+    let info_check = create_command(&docker.docker_bin)
         .args(["info", "--format", "{{.ServerVersion}}"])
         .output()
         .await;
@@ -35,7 +35,7 @@ pub async fn check_docker() -> Result<DockerStatus, String> {
     };
 
     // Check if compose is available
-    let compose_check = tokio::process::Command::new(&docker.docker_bin)
+    let compose_check = create_command(&docker.docker_bin)
         .args(["compose", "version"])
         .output()
         .await;

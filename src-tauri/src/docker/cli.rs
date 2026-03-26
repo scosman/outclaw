@@ -11,6 +11,25 @@ use tracing::{debug, error, info, warn};
 use crate::error::{OutClawError, Result};
 use crate::instance::{DockerState, DockerStatus};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub fn create_command(program: &str) -> Command {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new(program);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        Command::new(program)
+    }
+}
+
 /// Docker CLI wrapper
 pub struct DockerCli {
     pub docker_bin: String,
@@ -33,7 +52,7 @@ impl DockerCli {
     /// Check if Docker is available and running
     pub async fn check_available(&self) -> Result<DockerStatus> {
         // Check if docker binary exists
-        let docker_check = Command::new(&self.docker_bin)
+        let docker_check = create_command(&self.docker_bin)
             .arg("--version")
             .output()
             .await;
@@ -46,7 +65,7 @@ impl DockerCli {
         }
 
         // Check if Docker daemon is running
-        let info_check = Command::new(&self.docker_bin)
+        let info_check = create_command(&self.docker_bin)
             .args(["info", "--format", "{{.ServerVersion}}"])
             .output()
             .await;
@@ -58,7 +77,7 @@ impl DockerCli {
         };
 
         // Check if compose is available
-        let compose_check = Command::new(&self.docker_bin)
+        let compose_check = create_command(&self.docker_bin)
             .args(["compose", "version"])
             .output()
             .await;
@@ -75,7 +94,7 @@ impl DockerCli {
     pub async fn compose_up(&self, compose_path: &Path, project_name: &str) -> Result<()> {
         info!("Running docker compose up for project {}", project_name);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args([
                 "compose",
                 "-f",
@@ -105,7 +124,7 @@ impl DockerCli {
     pub async fn compose_stop(&self, compose_path: &Path, project_name: &str) -> Result<()> {
         info!("Running docker compose stop for project {}", project_name);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args([
                 "compose",
                 "-f",
@@ -134,7 +153,7 @@ impl DockerCli {
     pub async fn compose_down(&self, compose_path: &Path, project_name: &str) -> Result<()> {
         info!("Running docker compose down for project {}", project_name);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args([
                 "compose",
                 "-f",
@@ -184,7 +203,7 @@ impl DockerCli {
     ) -> Result<String> {
         info!("Running docker compose run for service {}", service);
 
-        let mut cmd = Command::new(&self.docker_bin);
+        let mut cmd = create_command(&self.docker_bin);
         cmd.args([
             "compose",
             "-f",
@@ -233,7 +252,7 @@ impl DockerCli {
     ) -> Result<()> {
         info!("Building Docker image with tag {}", tag);
 
-        let mut cmd = Command::new(&self.docker_bin);
+        let mut cmd = create_command(&self.docker_bin);
         cmd.args(["build", "-t", tag, context_path.to_str().unwrap()]);
 
         // Add build args
@@ -280,7 +299,7 @@ impl DockerCli {
     pub async fn list_containers(&self, label_filter: &str) -> Result<Vec<ContainerInfo>> {
         debug!("Listing containers with label filter: {}", label_filter);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args([
                 "ps",
                 "-a",
@@ -360,7 +379,7 @@ impl DockerCli {
     pub async fn inspect_container(&self, container_name: &str) -> Result<ContainerInfo> {
         debug!("Inspecting container: {}", container_name);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args(["inspect", "--format", "json", container_name])
             .output()
             .await?;
@@ -385,7 +404,7 @@ impl DockerCli {
     pub async fn remove_image(&self, tag: &str) -> Result<()> {
         info!("Removing Docker image: {}", tag);
 
-        let output = Command::new(&self.docker_bin)
+        let output = create_command(&self.docker_bin)
             .args(["rmi", "-f", tag])
             .output()
             .await?;
@@ -408,7 +427,7 @@ impl DockerCli {
             container_name, args
         );
 
-        let mut cmd = Command::new(&self.docker_bin);
+        let mut cmd = create_command(&self.docker_bin);
         cmd.args(["exec", container_name]);
         cmd.args(args);
 
@@ -443,7 +462,7 @@ impl DockerCli {
             container_name, args
         );
 
-        let mut cmd = Command::new(&self.docker_bin);
+        let mut cmd = create_command(&self.docker_bin);
         cmd.args(["exec", container_name]);
         cmd.args(args);
         cmd.stdout(Stdio::piped());
@@ -506,7 +525,7 @@ impl DockerCli {
             container_name, args
         );
 
-        let mut cmd = Command::new(&self.docker_bin);
+        let mut cmd = create_command(&self.docker_bin);
         cmd.args(["exec"]);
 
         // Add environment variables
