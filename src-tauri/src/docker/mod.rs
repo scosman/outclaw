@@ -2,6 +2,7 @@ mod cli;
 mod compose_gen;
 mod dockerfile_gen;
 mod env_gen;
+mod tarball;
 
 pub use cli::create_command;
 pub use cli::DockerCli;

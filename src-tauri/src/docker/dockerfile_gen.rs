@@ -1,11 +1,10 @@
 use std::path::Path;
 use std::time::Duration;
 
-use flate2::read::GzDecoder;
 use reqwest::Client;
-use tar::Archive;
 use tracing::{info, warn};
 
+use super::tarball;
 use crate::error::{OutClawError, Result};
 use crate::instance::Release;
 
@@ -72,11 +71,6 @@ pub async fn fetch_release_source(
 
     info!("Downloaded {} bytes for {}", bytes.len(), release.tag);
 
-    // Extract tarball
-    let cursor = std::io::Cursor::new(&bytes[..]);
-    let gz_decoder = GzDecoder::new(cursor);
-    let mut archive = Archive::new(gz_decoder);
-
     // Extract to a temp location first, then move if successful
     let temp_extract_dir = source_cache_dir.join(format!(".extracting-{}", tag_normalized));
     if temp_extract_dir.exists() {
@@ -84,10 +78,7 @@ pub async fn fetch_release_source(
     }
     std::fs::create_dir_all(&temp_extract_dir)?;
 
-    // Extract the archive
-    archive
-        .unpack(&temp_extract_dir)
-        .map_err(|e| OutClawError::SourceFetch(format!("Failed to extract tarball: {}", e)))?;
+    tarball::extract_tar_gz(&bytes, &temp_extract_dir)?;
 
     // Find the extracted directory (GitHub creates a single top-level dir)
     let extracted_content: Vec<_> = std::fs::read_dir(&temp_extract_dir)

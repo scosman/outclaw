@@ -980,27 +980,31 @@ pub async fn connect_provider(
     // Wait for credential restart to complete before testing connection
     sleep(Duration::from_secs(5)).await;
 
-    // Validate the connection by sending a test message (check exit code, not JSON)
+    // Validate the connection by sending a test message and checking for a canary word
+    // Tis a bit silly, but the agent call returns exit code 0 even on errors.
     let test_args = [
         "openclaw",
         "agent",
         "--message",
-        "Testing connection. Reply with just the word 'OK'",
+        "Testing connection. Reply with just the word 'oranges'. Your response must include the word 'oranges' or the connection test will fail.",
         "--local",
         "--agent",
         "main",
     ];
-    let _ = state
+    let conn_test_err =
+        "Provider connection test failed: ensure your API key is valid and try again.";
+    let test_output = state
         .docker_cli
         .docker_exec(&container_name, &test_args)
         .await
-        .map_err(|_| {
-            let err_msg =
-                "Provider connection test failed: ensure your API key is valid and try again."
-                    .to_string();
-            warn!("{}", err_msg);
-            err_msg
+        .map_err(|e| {
+            warn!("{}: {}", conn_test_err, e);
+            conn_test_err.to_string()
         })?;
+    if !test_output.to_lowercase().contains("oranges") {
+        warn!("Connection test response missing canary word: {}", test_output);
+        return Err(conn_test_err.to_string());
+    }
 
     info!(
         "Provider {} connected and validated successfully for instance {}",
