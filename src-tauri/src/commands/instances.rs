@@ -1002,7 +1002,10 @@ pub async fn connect_provider(
             conn_test_err.to_string()
         })?;
     if !test_output.to_lowercase().contains("oranges") {
-        warn!("Connection test response missing canary word: {}", test_output);
+        warn!(
+            "Connection test response missing canary word: {}",
+            test_output
+        );
         return Err(conn_test_err.to_string());
     }
 
