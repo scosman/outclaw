@@ -1090,9 +1090,10 @@ pub async fn connect_whatsapp(
         }
     }
 
-    // Wait 5 seconds for the gateway to restart after channel installation
+    // Wait 15 seconds for the gateway to restart after channel installation
+    // Slower computers need time
     emit_progress("Waiting for gateway to restart...", false, None);
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
 
     // Now run the login command with streaming output
     emit_progress("Starting WhatsApp login...", false, None);
