@@ -2,7 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { goto } from '$app/navigation';
 	import type { InstanceWithStatus } from '$lib/types/instance';
-	import { formatInstanceState, getGatewayUrl } from '$lib/types/instance';
+	import { formatInstanceState } from '$lib/types/instance';
 	import { dockerStore } from '$lib/stores/docker.svelte';
 	import StatusDot from './StatusDot.svelte';
 
@@ -30,22 +30,10 @@
 
 	// Navigate to instance detail page when card is clicked
 	function handleCardClick(e: MouseEvent) {
-		// Don't navigate if clicking on a button or link
 		if ((e.target as HTMLElement).closest('button, a')) return;
 		goto(`/instances/${instance.id}`);
 	}
 
-	// Open gateway in browser
-	async function handleOpen(e: MouseEvent) {
-		e.stopPropagation(); // Prevent card click
-		try {
-			await invoke('open_in_browser', { url: getGatewayUrl(instance) });
-		} catch (error) {
-			console.error('Failed to open browser:', error);
-		}
-	}
-
-	// Start instance
 	async function handleStart(e: MouseEvent) {
 		e.stopPropagation(); // Prevent card click
 		if (actionInProgress) return;
@@ -119,17 +107,6 @@
 
 	<div class="mb-4 flex items-center gap-4 text-sm text-zinc-500">
 		<span>{formatInstanceState(effectiveState)}</span>
-		{#if isRunning}
-			<span class="text-zinc-600">|</span>
-			<a
-				href={getGatewayUrl(instance)}
-				class="text-emerald-500 hover:text-emerald-400"
-				target="_blank"
-				rel="noopener noreferrer"
-			>
-				{getGatewayUrl(instance)}
-			</a>
-		{/if}
 	</div>
 
 	{#if hasError && instance.status.error_message}
@@ -149,16 +126,11 @@
 			</button>
 		{:else if isRunning}
 			<button
-				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"
-				onclick={handleOpen}
-				disabled={isLoading}
-				title="Open gateway in browser"
+				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+				onclick={handleDetails}
+				title="View instance details"
 			>
-				{#if actionInProgress === 'open'}
-					<span class="opacity-50">Opening...</span>
-				{:else}
-					Open
-				{/if}
+				Details
 			</button>
 			<button
 				class="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-50"

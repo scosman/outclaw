@@ -66,7 +66,7 @@ export interface Release {
 
 // Helper function to get gateway URL
 export function getGatewayUrl(config: InstanceConfig): string {
-	return `http://localhost:${config.gateway_port}`;
+	return `http://localhost:${config.gateway_port}?token=${config.gateway_token}`;
 }
 
 // Helper function to format instance state for display

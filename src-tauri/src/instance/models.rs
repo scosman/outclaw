@@ -84,7 +84,10 @@ impl InstanceConfig {
 
     /// Get the gateway URL
     pub fn gateway_url(&self) -> String {
-        format!("http://localhost:{}", self.gateway_port)
+        format!(
+            "http://localhost:{}?token={}",
+            self.gateway_port, self.gateway_token
+        )
     }
 }
 
@@ -319,5 +322,33 @@ mod tests {
     fn test_gateway_bind_display() {
         assert_eq!(format!("{}", GatewayBind::Loopback), "loopback");
         assert_eq!(format!("{}", GatewayBind::Lan), "lan");
+    }
+
+    #[test]
+    fn test_gateway_url_includes_token() {
+        let config = InstanceConfig {
+            id: "ec_test123".to_string(),
+            name: "Test Instance".to_string(),
+            openclaw_version: "v0.42.1".to_string(),
+            container_id: "ct_abc456".to_string(),
+            gateway_port: 18789,
+            bridge_port: 18790,
+            gateway_bind: GatewayBind::Loopback,
+            gateway_token: "deadbeef1234".to_string(),
+            timezone: "UTC".to_string(),
+            install_browser: false,
+            apt_packages: "".to_string(),
+            extensions: "".to_string(),
+            home_volume: "".to_string(),
+            extra_mounts: "".to_string(),
+            allow_insecure_ws: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        assert_eq!(
+            config.gateway_url(),
+            "http://localhost:18789?token=deadbeef1234"
+        );
     }
 }

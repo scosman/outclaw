@@ -10,16 +10,16 @@ This project is small enough for a single architecture doc — no component desi
 
 ### Frontend (Svelte)
 
-| File | Change |
-|------|--------|
+| File                                     | Change                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
 | `src/lib/components/InstanceCard.svelte` | Remove gateway URL display, rename "Open" → "Details", navigate to detail page |
-| `src/lib/types/instance.ts` | Update `getGatewayUrl()` to append `?token=` |
+| `src/lib/types/instance.ts`              | Update `getGatewayUrl()` to append `?token=`                                   |
 
 ### Backend (Rust)
 
-| File | Change |
-|------|--------|
-| `src-tauri/src/instance/models.rs` | Update `gateway_url()` to append `?token=` |
+| File                                  | Change                                                      |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `src-tauri/src/instance/models.rs`    | Update `gateway_url()` to append `?token=`                  |
 | `src-tauri/src/commands/instances.rs` | Fix Stage 8 config-set race, add controlUi config-set calls |
 
 ## Detailed Changes
@@ -31,13 +31,15 @@ Remove the gateway URL display block (the `{#if isRunning}` section showing `get
 ### 2. getGatewayUrl / gateway_url
 
 **TypeScript** (`src/lib/types/instance.ts`):
+
 ```typescript
 export function getGatewayUrl(config: InstanceConfig): string {
-    return `http://localhost:${config.gateway_port}?token=${config.gateway_token}`;
+	return `http://localhost:${config.gateway_port}?token=${config.gateway_token}`;
 }
 ```
 
 **Rust** (`src-tauri/src/instance/models.rs`):
+
 ```rust
 pub fn gateway_url(&self) -> String {
     format!("http://localhost:{}?token={}", self.gateway_port, self.gateway_token)
@@ -51,6 +53,7 @@ pub fn gateway_url(&self) -> String {
 The config-set CLI commands execute correctly and the bind value is `"lan"` when expected (confirmed via logging). But `openclaw.json` ends up with `"loopback"` after the build completes. Something overwrites the config between Stage 8 and the final state.
 
 Investigation steps during implementation:
+
 1. Read `openclaw.json` from host after Stage 8 completes (before Stage 9 restart) — does it have the correct `bind: "lan"`?
 2. Read `openclaw.json` after Stage 9 restart — did the value revert?
 3. If the restart overwrites: restructure so config-set runs after the gateway is stopped but before it restarts, or after the final restart with the gateway running.
