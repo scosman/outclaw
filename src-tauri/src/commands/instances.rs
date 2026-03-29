@@ -1066,34 +1066,62 @@ pub async fn connect_whatsapp(
         )
         .await;
 
+    let channel_already_exists = |msg: &str| -> bool {
+        msg.contains("already installed")
+            || msg.contains("already exists")
+            || msg.contains("Added whatsapp account")
+    };
+
     match add_result {
-        Ok(output) => {
-            // Channel add succeeded (or was already installed)
-            if output.contains("already installed") || output.contains("already exists") {
-                emit_progress("WhatsApp channel already installed", false, None);
-            } else {
-                emit_progress(
-                    "WhatsApp channel installed, waiting for restart...",
-                    false,
-                    None,
-                );
-            }
+        Ok(output) if channel_already_exists(&output) => {
+            emit_progress("WhatsApp channel already installed", false, None);
         }
-        Err(e) => {
-            // Non-fatal - channel might already be installed
-            warn!("Channel add warning (non-fatal): {}", e);
+        Ok(_) => {
             emit_progress(
-                "WhatsApp channel ready, waiting for restart...",
+                "WhatsApp channel installed, waiting for restart...",
                 false,
                 None,
             );
         }
+        Err(e) if channel_already_exists(&e.to_string()) => {
+            emit_progress("WhatsApp channel already installed", false, None);
+        }
+        Err(e) => {
+            let err_msg = format!("Failed to install WhatsApp channel: {}", e);
+            emit_progress(&err_msg, true, Some(&err_msg));
+            return Err(err_msg);
+        }
     }
 
-    // Wait 15 seconds for the gateway to restart after channel installation
-    // Slower computers need time
+    // Wait for the gateway to restart after channel installation
     emit_progress("Waiting for gateway to restart...", false, None);
-    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let max_poll_attempts = 30;
+    let mut gateway_ready = false;
+    for i in 0..max_poll_attempts {
+        match state
+            .docker_cli
+            .docker_exec(&container_name, &["echo", "ready"])
+            .await
+        {
+            Ok(_) => {
+                gateway_ready = true;
+                break;
+            }
+            Err(_) => {
+                if i < max_poll_attempts - 1 {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    }
+
+    if !gateway_ready {
+        let err_msg = "Gateway did not become ready after restart".to_string();
+        emit_progress(&err_msg, true, Some(&err_msg));
+        return Err(err_msg);
+    }
 
     // Now run the login command with streaming output
     emit_progress("Starting WhatsApp login...", false, None);
@@ -1114,20 +1142,28 @@ pub async fn connect_whatsapp(
     // Drop the original sender so the channel closes when the task finishes
     drop(tx);
 
-    // Forward output to frontend
+    // Forward output to frontend and track whether login produced output
+    let mut received_output = false;
     while let Some(line) = rx.recv().await {
+        received_output = true;
         emit_progress(&line, false, None);
     }
 
     // Wait for command to complete
     match handle.await {
-        Ok(Ok(())) => {
+        Ok(Ok(())) if received_output => {
             emit_progress("WhatsApp connected successfully!", true, None);
             info!(
                 "WhatsApp connected successfully for instance {}",
                 instance_id
             );
             Ok(())
+        }
+        Ok(Ok(())) => {
+            let err_msg = "WhatsApp login exited without producing output — login may not have run"
+                .to_string();
+            emit_progress(&err_msg, true, Some(&err_msg));
+            Err(err_msg)
         }
         Ok(Err(e)) => {
             let err_msg = format!("WhatsApp connection failed: {}", e);
