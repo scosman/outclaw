@@ -348,7 +348,7 @@
 							/>
 							<div>
 								<span class="block text-sm font-medium text-zinc-100">Local Only</span>
-								<span class="block text-xs text-zinc-500">Only accessible from this computer</span>
+								<span class="block text-xs text-zinc-500">Only accessible from within Docker</span>
 							</div>
 						</label>
 
@@ -375,6 +375,12 @@
 						Allow portal access from other devices on your network. Does not affect chat access or
 						the container's own internet access.
 					</p>
+					{#if localSettings.gateway_bind === 'loopback'}
+						<p class="mt-1 text-xs text-amber-400">
+							Warning: you won't be able to access the gateway portal from your computer, as it
+							won't allow connections from outside of docker.
+						</p>
+					{/if}
 				</div>
 				<!-- APT Packages -->
 				<div>
