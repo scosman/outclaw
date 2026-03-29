@@ -12,6 +12,7 @@
 	import { PROVIDERS, getProviderById, getDefaultProvider } from '$lib/config/providers';
 	import type { InstanceWithStatus } from '$lib/types/instance';
 	import { getGatewayUrl, formatInstanceState } from '$lib/types/instance';
+	import CrabLoading from '$lib/components/CrabLoading.svelte';
 
 	let isLoading = $state(true);
 	let isCreating = $state(false);
@@ -387,9 +388,9 @@
 		{:else if wizardStore.currentStep === 'build'}
 			<!-- Step 4: Build Progress -->
 			<div class="mx-auto w-full max-w-2xl px-6 py-8">
-				<div class="mb-6 text-center">
+				<div class="mb-2 text-center">
 					<h2 class="mb-2 text-xl font-semibold text-zinc-100">Building Instance</h2>
-					<p class="text-sm text-zinc-400">Setting up your OpenClaw instance...</p>
+					<CrabLoading loading={!buildComplete && !buildError} />
 				</div>
 
 				{#if wizardStore.createdInstanceId}
@@ -579,6 +580,9 @@
 										Connect Provider
 									{/if}
 								</button>
+								{#if isConnecting || true}
+									<CrabLoading loading={true} />
+								{/if}
 							</div>
 						</div>
 

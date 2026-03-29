@@ -56,10 +56,10 @@
 <div class="flex h-screen flex-col">
 	<header class="flex h-12 items-center justify-between border-b border-zinc-800 bg-zinc-900 px-4">
 		<h1 class="text-lg font-semibold tracking-tight text-zinc-100 flex flex-row gap-2 items-center">
-			<div class="h-8 w-8">
+			<div class="h-8 w-8 shrink-0">
 				<WobbleCrab />
 			</div>
-			OutClaw
+			<span class="shrink-0"> OutClaw </span>
 		</h1>
 		<DockerStatusPill />
 	</header>
