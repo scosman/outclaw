@@ -369,6 +369,80 @@ pub async fn restart_instance(
     Ok(())
 }
 
+async fn wait_for_gateway_ready(
+    docker_cli: &DockerCli,
+    container_name: &str,
+    initial_delay_secs: u64,
+    max_attempts: u32,
+) -> Result<(), String> {
+    tokio::time::sleep(std::time::Duration::from_secs(initial_delay_secs)).await;
+
+    for i in 0..max_attempts {
+        match docker_cli
+            .docker_exec(container_name, &["echo", "ready"])
+            .await
+        {
+            Ok(_) => return Ok(()),
+            Err(_) => {
+                if i < max_attempts - 1 {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    }
+
+    Err(format!(
+        "Gateway did not become ready after {} attempts",
+        max_attempts
+    ))
+}
+
+/// Restart gateway container for an instance and wait for readiness
+#[tauri::command]
+pub async fn restart_gateway(
+    instance_id: String,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("Restarting gateway for instance {}", instance_id);
+
+    let config = state
+        .instance_manager
+        .get(&instance_id)
+        .map_err(|e| e.to_string())?;
+
+    let docker_dir = config.docker_path();
+    let compose_path = docker_dir.join("docker-compose.yml");
+    let project_name = format!("outclaw-{}", config.container_id);
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+
+    if let Err(e) = state
+        .docker_cli
+        .compose_stop(&compose_path, &project_name)
+        .await
+    {
+        warn!("Gateway stop warning (non-fatal): {}", e);
+    }
+
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    state
+        .docker_cli
+        .compose_up(&compose_path, &project_name)
+        .await
+        .map_err(|e| format!("Failed to start gateway: {}", e))?;
+
+    wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await?;
+
+    emit_instance_status(&instance_id, &app_handle, &state).await;
+
+    info!(
+        "Gateway restarted successfully for instance {}",
+        instance_id
+    );
+    Ok(())
+}
+
 /// Emit instance status to frontend
 async fn emit_instance_status(id: &str, app_handle: &AppHandle, state: &AppState) {
     // Get the current status from Docker
@@ -1093,32 +1167,9 @@ pub async fn connect_whatsapp(
         }
     }
 
-    // Wait for the gateway to restart after channel installation
     emit_progress("Waiting for gateway to restart...", false, None);
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-    let max_poll_attempts = 30;
-    let mut gateway_ready = false;
-    for i in 0..max_poll_attempts {
-        match state
-            .docker_cli
-            .docker_exec(&container_name, &["echo", "ready"])
-            .await
-        {
-            Ok(_) => {
-                gateway_ready = true;
-                break;
-            }
-            Err(_) => {
-                if i < max_poll_attempts - 1 {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                }
-            }
-        }
-    }
-
-    if !gateway_ready {
-        let err_msg = "Gateway did not become ready after restart".to_string();
+    if let Err(e) = wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await {
+        let err_msg = format!("Gateway did not become ready after restart: {}", e);
         emit_progress(&err_msg, true, Some(&err_msg));
         return Err(err_msg);
     }

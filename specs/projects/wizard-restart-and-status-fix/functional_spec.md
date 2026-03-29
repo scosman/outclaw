@@ -53,7 +53,7 @@ The frontend `instancesStore` uses a `SvelteMap<string, InstanceWithStatus>`. Th
 ```typescript
 const instance = instances.get(id);
 if (instance) {
-    instances.set(id, { ...instance, status });
+	instances.set(id, { ...instance, status });
 }
 // no else — event is silently dropped
 ```

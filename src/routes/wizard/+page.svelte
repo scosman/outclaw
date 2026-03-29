@@ -10,7 +10,6 @@
 	import TelegramConnect from '$lib/components/TelegramConnect.svelte';
 	import StatusDot from '$lib/components/StatusDot.svelte';
 	import { PROVIDERS, getProviderById, getDefaultProvider } from '$lib/config/providers';
-	import type { InstanceWithStatus } from '$lib/types/instance';
 	import { formatInstanceState } from '$lib/types/instance';
 	import CrabLoading from '$lib/components/CrabLoading.svelte';
 
@@ -19,7 +18,8 @@
 	let error = $state<string | null>(null);
 	let buildComplete = $state(false);
 	let buildError = $state<string | null>(null);
-	let createdInstance = $state<InstanceWithStatus | null>(null);
+	let isRestarting = $state(false);
+	let restartError = $state<string | null>(null);
 
 	// Provider connection state
 	let selectedProviderId = $state<string>(getDefaultProvider().id);
@@ -36,6 +36,12 @@
 
 	// Check if at least one channel is connected
 	const hasConnectedChannel = $derived(whatsAppConnected || telegramConnected);
+
+	const createdInstanceFromStore = $derived(
+		wizardStore.createdInstanceId
+			? instancesStore.getInstance(wizardStore.createdInstanceId)
+			: undefined
+	);
 
 	// Get the currently selected provider config
 	const selectedProvider = $derived(getProviderById(selectedProviderId) || getDefaultProvider());
@@ -121,10 +127,21 @@
 			// Provider setup done/skipped, go to channel setup
 			wizardStore.nextStep();
 		} else if (wizardStore.currentStep === 'channel') {
-			// Channel setup done/skipped, go to complete
+			if (!wizardStore.createdInstanceId) return;
+			isRestarting = true;
+			restartError = null;
 			wizardStore.nextStep();
-			// Fetch the instance with status for the complete screen
-			await fetchCreatedInstance();
+
+			try {
+				await invoke('restart_gateway', {
+					instanceId: wizardStore.createdInstanceId
+				});
+				await instancesStore.refresh();
+			} catch (e) {
+				restartError = `Failed to restart gateway: ${e}`;
+			} finally {
+				isRestarting = false;
+			}
 		}
 	}
 
@@ -134,8 +151,14 @@
 
 		try {
 			await wizardStore.createInstance();
+			if (wizardStore.createdInstanceId && wizardStore.createdInstanceConfig) {
+				instancesStore.setInstance({
+					...wizardStore.createdInstanceConfig,
+					id: wizardStore.createdInstanceId,
+					status: { state: 'building', error_message: undefined }
+				});
+			}
 			wizardStore.goToStep('build');
-			// Build will be triggered when user lands on build step
 		} catch (e) {
 			error = `Failed to create instance: ${e}`;
 		} finally {
@@ -143,18 +166,19 @@
 		}
 	}
 
-	async function fetchCreatedInstance() {
-		if (!wizardStore.createdInstanceId) return;
+	async function retryRestart() {
+		isRestarting = true;
+		restartError = null;
 
 		try {
-			const instance = await invoke<InstanceWithStatus>('get_instance', {
-				id: wizardStore.createdInstanceId
+			await invoke('restart_gateway', {
+				instanceId: wizardStore.createdInstanceId
 			});
-			createdInstance = instance;
-			// Also update the instances store
-			instancesStore.setInstance(instance);
+			await instancesStore.refresh();
 		} catch (e) {
-			console.error('Failed to fetch instance:', e);
+			restartError = `Failed to restart gateway: ${e}`;
+		} finally {
+			isRestarting = false;
 		}
 	}
 
@@ -187,7 +211,7 @@
 	<header
 		class="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900 px-6"
 	>
-		{#if wizardStore.currentStep !== 'install-type'}
+		{#if wizardStore.currentStep !== 'install-type' && !isRestarting}
 			<button
 				type="button"
 				class="flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
@@ -888,51 +912,78 @@
 				</div>
 			{/if}
 		{:else if wizardStore.currentStep === 'complete'}
-			<!-- Step 7: Completion Screen -->
-			<div class="mx-auto flex w-full max-w-2xl flex-1 items-center px-6 py-8">
-				<div class="w-full space-y-8">
-					<!-- Success Message -->
-					<div class="text-center">
-						<h2 class="mb-2 text-xl font-semibold text-zinc-100">Setup Complete</h2>
-						<p class="mt-4 text-base text-zinc-300">
-							You can now message OpenClaw and it should respond!
-						</p>
-						{#if whatsAppConnected}
-							<p class="mt-3 text-sm text-zinc-400">
-								For WhatsApp, message the &ldquo;me&rdquo; contact to talk to OpenClaw.
-							</p>
-						{/if}
+			{#if isRestarting}
+				<div class="mx-auto flex w-full max-w-2xl flex-1 items-center px-6 py-8">
+					<div class="w-full text-center space-y-4">
+						<h2 class="text-xl font-semibold text-zinc-100">Finishing Setup</h2>
+						<p class="text-sm text-zinc-400">Restarting gateway to apply your configuration...</p>
+						<CrabLoading loading={true} />
 					</div>
-
-					<!-- Instance Status (subdued) -->
-					{#if wizardStore.createdInstanceConfig}
-						<div class="rounded-lg border border-zinc-800/60 bg-zinc-900/30 px-4 py-3">
-							<div class="flex items-center justify-between">
-								<span class="text-sm text-zinc-500">{wizardStore.createdInstanceConfig.name}</span>
-								<div class="flex items-center gap-2">
-									<StatusDot state={createdInstance?.status?.state || 'running'} size="sm" />
-									<span class="text-sm text-zinc-500"
-										>{createdInstance
-											? formatInstanceState(createdInstance.status.state)
-											: 'Running'}</span
-									>
-								</div>
-							</div>
+				</div>
+			{:else if restartError}
+				<div class="mx-auto flex w-full max-w-2xl flex-1 items-center px-6 py-8">
+					<div class="w-full text-center space-y-4">
+						<h2 class="text-xl font-semibold text-zinc-100">Restart Failed</h2>
+						<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+							<p class="text-sm text-red-400">{restartError}</p>
 						</div>
-					{/if}
-
-					<!-- Action Button -->
-					<div class="text-center">
 						<button
 							type="button"
-							class="text-sm text-zinc-400 underline decoration-zinc-600 underline-offset-4 transition-colors hover:text-zinc-200"
-							onclick={goToDashboard}
+							class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+							onclick={retryRestart}
 						>
-							Return to Dashboard
+							Retry
 						</button>
 					</div>
 				</div>
-			</div>
+			{:else}
+				<!-- Step 7: Completion Screen -->
+				<div class="mx-auto flex w-full max-w-2xl flex-1 items-center px-6 py-8">
+					<div class="w-full space-y-8">
+						<!-- Success Message -->
+						<div class="text-center">
+							<h2 class="mb-2 text-xl font-semibold text-zinc-100">Setup Complete</h2>
+							<p class="mt-4 text-base text-zinc-300">
+								You can now message OpenClaw and it should respond!
+							</p>
+							{#if whatsAppConnected}
+								<p class="mt-3 text-sm text-zinc-400">
+									For WhatsApp, message the &ldquo;me&rdquo; contact to talk to OpenClaw.
+								</p>
+							{/if}
+						</div>
+
+						<!-- Instance Status (subdued) -->
+						{#if wizardStore.createdInstanceConfig}
+							<div class="rounded-lg border border-zinc-800/60 bg-zinc-900/30 px-4 py-3">
+								<div class="flex items-center justify-between">
+									<span class="text-sm text-zinc-500">{wizardStore.createdInstanceConfig.name}</span
+									>
+									{#if createdInstanceFromStore}
+										<div class="flex items-center gap-2">
+											<StatusDot state={createdInstanceFromStore.status.state} size="sm" />
+											<span class="text-sm text-zinc-500"
+												>{formatInstanceState(createdInstanceFromStore.status.state)}</span
+											>
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Action Button -->
+						<div class="text-center">
+							<button
+								type="button"
+								class="text-sm text-zinc-400 underline decoration-zinc-600 underline-offset-4 transition-colors hover:text-zinc-200"
+								onclick={goToDashboard}
+							>
+								Return to Dashboard
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
 

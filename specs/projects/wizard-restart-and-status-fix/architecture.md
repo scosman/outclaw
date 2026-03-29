@@ -46,6 +46,7 @@ async fn wait_for_gateway_ready(
 ```
 
 **Callers:**
+
 - `connect_whatsapp`: replace the inline poll loop with `wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await?`
 - `restart_gateway` (new command, see below)
 
@@ -85,25 +86,25 @@ After `wizardStore.createInstance()` succeeds, add the instance to the global st
 
 ```typescript
 async function createAndBuild() {
-    isCreating = true;
-    error = null;
+	isCreating = true;
+	error = null;
 
-    try {
-        await wizardStore.createInstance();
-        // Add to instances store immediately so poller events are captured
-        if (wizardStore.createdInstanceId && wizardStore.createdInstanceConfig) {
-            instancesStore.setInstance({
-                ...wizardStore.createdInstanceConfig,
-                id: wizardStore.createdInstanceId,
-                status: { state: 'building', error_message: undefined }
-            });
-        }
-        wizardStore.goToStep('build');
-    } catch (e) {
-        error = `Failed to create instance: ${e}`;
-    } finally {
-        isCreating = false;
-    }
+	try {
+		await wizardStore.createInstance();
+		// Add to instances store immediately so poller events are captured
+		if (wizardStore.createdInstanceId && wizardStore.createdInstanceConfig) {
+			instancesStore.setInstance({
+				...wizardStore.createdInstanceConfig,
+				id: wizardStore.createdInstanceId,
+				status: { state: 'building', error_message: undefined }
+			});
+		}
+		wizardStore.goToStep('build');
+	} catch (e) {
+		error = `Failed to create instance: ${e}`;
+	} finally {
+		isCreating = false;
+	}
 }
 ```
 
@@ -154,18 +155,18 @@ let restartError = $state<string | null>(null);
 
 ```typescript
 async function retryRestart() {
-    isRestarting = true;
-    restartError = null;
-    try {
-        await invoke('restart_gateway', {
-            instanceId: wizardStore.createdInstanceId
-        });
-        await instancesStore.refresh();
-    } catch (e) {
-        restartError = `Failed to restart gateway: ${e}`;
-    } finally {
-        isRestarting = false;
-    }
+	isRestarting = true;
+	restartError = null;
+	try {
+		await invoke('restart_gateway', {
+			instanceId: wizardStore.createdInstanceId
+		});
+		await instancesStore.refresh();
+	} catch (e) {
+		restartError = `Failed to restart gateway: ${e}`;
+	} finally {
+		isRestarting = false;
+	}
 }
 ```
 
@@ -207,9 +208,7 @@ Replace the local `createdInstance` variable usage with a store-derived value:
 
 ```typescript
 const createdInstanceFromStore = $derived(
-    wizardStore.createdInstanceId
-        ? instancesStore.getInstance(wizardStore.createdInstanceId)
-        : null
+	wizardStore.createdInstanceId ? instancesStore.getInstance(wizardStore.createdInstanceId) : null
 );
 ```
 

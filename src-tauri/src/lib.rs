@@ -60,6 +60,7 @@ pub fn run() {
             commands::instances::start_instance,
             commands::instances::stop_instance,
             commands::instances::restart_instance,
+            commands::instances::restart_gateway,
             commands::instances::build_instance,
             commands::instances::cancel_build,
             commands::instances::connect_provider,

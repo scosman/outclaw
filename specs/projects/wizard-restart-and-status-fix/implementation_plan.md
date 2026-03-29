@@ -6,7 +6,7 @@ status: complete
 
 ## Phases
 
-- [ ] Phase 1: Backend shared helper + restart command, frontend store fix + restart flow
+- [x] Phase 1: Backend shared helper + restart command, frontend store fix + restart flow
 
 ---
 
