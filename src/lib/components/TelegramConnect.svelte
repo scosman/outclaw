@@ -174,7 +174,7 @@
 				<h4 class="mb-2 text-sm font-medium text-zinc-200">Pair Your Bot</h4>
 				<ol class="list-inside list-decimal space-y-2 text-sm text-zinc-400">
 					<li>Open Telegram and start a conversation with your bot</li>
-					<li>Send any message to the bot</li>
+					<li>Send a &quot;/start&quot; message to the bot</li>
 					<li>The bot will reply with a pairing code</li>
 					<li>Paste the pairing code below</li>
 				</ol>
