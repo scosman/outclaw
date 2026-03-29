@@ -13,6 +13,100 @@ use crate::instance::{
     InstanceWithStatus, Release,
 };
 
+fn apply_gateway_config(
+    config_dir: &std::path::Path,
+    bind_mode: &str,
+    gateway_port: u16,
+) -> crate::error::Result<()> {
+    let config_json_path = config_dir.join("openclaw.json");
+    let mut doc: serde_json::Value = if config_json_path.exists() {
+        let contents = std::fs::read_to_string(&config_json_path)?;
+        if contents.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(&contents)?
+        }
+    } else {
+        serde_json::json!({})
+    };
+
+    if !doc.is_object() {
+        doc = serde_json::json!({});
+    }
+
+    let gateway = doc
+        .as_object_mut()
+        .ok_or_else(|| {
+            crate::error::OutClawError::InvalidConfig(
+                "openclaw.json root is not an object".to_string(),
+            )
+        })?
+        .entry("gateway")
+        .or_insert_with(|| serde_json::json!({}));
+
+    if !gateway.is_object() {
+        *gateway = serde_json::json!({});
+    }
+
+    let gateway_obj = gateway.as_object_mut().unwrap();
+    gateway_obj.insert("mode".to_string(), serde_json::json!("local"));
+    gateway_obj.insert("bind".to_string(), serde_json::json!(bind_mode));
+
+    let control_ui = gateway_obj
+        .entry("controlUi")
+        .or_insert_with(|| serde_json::json!({}));
+
+    if !control_ui.is_object() {
+        *control_ui = serde_json::json!({});
+    }
+
+    let control_ui_obj = control_ui.as_object_mut().unwrap();
+    control_ui_obj.insert(
+        "allowedOrigins".to_string(),
+        serde_json::json!([format!("http://localhost:{}", gateway_port)]),
+    );
+    control_ui_obj.insert(
+        "dangerouslyDisableDeviceAuth".to_string(),
+        serde_json::json!(true),
+    );
+
+    let pretty = serde_json::to_string_pretty(&doc)?;
+    std::fs::write(&config_json_path, pretty)?;
+
+    Ok(())
+}
+
+async fn write_gateway_config_with_retry(
+    config_dir: &std::path::Path,
+    bind_mode: &str,
+    gateway_port: u16,
+) -> crate::error::Result<()> {
+    let max_attempts = 3u32;
+    let mut last_error: Option<crate::error::OutClawError> = None;
+
+    for attempt in 1..=max_attempts {
+        match apply_gateway_config(config_dir, bind_mode, gateway_port) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_attempts {
+                    info!(
+                        "Gateway config write attempt {} failed, retrying in 1s...",
+                        attempt
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    }
+
+    Err(crate::error::OutClawError::Other(format!(
+        "Failed to configure gateway settings after {} attempts: {}",
+        max_attempts,
+        last_error.unwrap()
+    )))
+}
+
 /// Tracks active builds for cancellation support
 pub struct BuildTracker {
     active_builds: RwLock<HashMap<String, tokio_util::sync::CancellationToken>>,
@@ -870,52 +964,20 @@ pub async fn build_instance(
         }
     }
 
-    // ========== Stage 8: Configure gateway ==========
+    // ========== Stage 8: Configure gateway (deferred to Stage 9) ==========
     emit_progress(
         "configuring-gateway",
-        "Configuring gateway settings...",
+        "Preparing gateway configuration...",
         false,
         None,
     );
 
-    // Set gateway mode - errors are non-fatal as CLI may not exist
-    let gateway_mode = "local";
-    if let Err(e) = state
-        .docker_cli
-        .compose_run(
-            &compose_path,
-            &project_name,
-            &format!("{}-cli", project_name),
-            &["config", "set", "gateway.mode", gateway_mode],
-            None,
-        )
-        .await
-    {
-        warn!("Gateway mode config warning (non-fatal): {}", e);
-    }
-
-    // Set gateway bind
     let bind_mode = match config.gateway_bind {
         crate::instance::GatewayBind::Loopback => "loopback",
         crate::instance::GatewayBind::Lan => "lan",
     };
-    if let Err(e) = state
-        .docker_cli
-        .compose_run(
-            &compose_path,
-            &project_name,
-            &format!("{}-cli", project_name),
-            &["config", "set", "gateway.bind", bind_mode],
-            None,
-        )
-        .await
-    {
-        warn!("Gateway bind config warning (non-fatal): {}", e);
-    }
 
-    emit_progress("configuring-gateway", "Gateway configured", false, None);
-
-    // ========== Stage 9: Restart gateway ==========
+    // ========== Stage 9: Stop, write config, restart gateway ==========
     emit_progress(
         "restarting-gateway",
         "Restarting gateway to apply changes...",
@@ -923,15 +985,37 @@ pub async fn build_instance(
         None,
     );
 
-    // Stop and start to pick up config changes - stop errors are non-fatal
     if let Err(e) = state
         .docker_cli
         .compose_stop(&compose_path, &project_name)
         .await
     {
-        warn!("Gateway stop warning (non-fatal): {}", e);
+        let err_msg = emit_error("restarting-gateway", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
     }
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    emit_progress(
+        "configuring-gateway",
+        "Writing gateway configuration...",
+        false,
+        None,
+    );
+
+    if let Err(e) =
+        write_gateway_config_with_retry(&config.config_path(), bind_mode, config.gateway_port).await
+    {
+        let err_msg = emit_error("configuring-gateway", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
+
+    emit_progress(
+        "configuring-gateway",
+        "Gateway configuration written",
+        false,
+        None,
+    );
 
     if let Err(e) = state
         .docker_cli
@@ -1337,4 +1421,130 @@ pub async fn approve_telegram_pairing(
         instance_id
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn read_config_json(dir: &std::path::Path) -> serde_json::Value {
+        let path = dir.join("openclaw.json");
+        let contents = std::fs::read_to_string(&path).unwrap();
+        serde_json::from_str(&contents).unwrap()
+    }
+
+    #[test]
+    fn test_apply_gateway_config_creates_new_file() {
+        let dir = tempfile::tempdir().unwrap();
+        apply_gateway_config(dir.path(), "lan", 18789).unwrap();
+
+        let doc = read_config_json(dir.path());
+        assert_eq!(doc["gateway"]["mode"], "local");
+        assert_eq!(doc["gateway"]["bind"], "lan");
+        assert_eq!(
+            doc["gateway"]["controlUi"]["allowedOrigins"],
+            serde_json::json!(["http://localhost:18789"])
+        );
+        assert_eq!(
+            doc["gateway"]["controlUi"]["dangerouslyDisableDeviceAuth"],
+            true
+        );
+    }
+
+    #[test]
+    fn test_apply_gateway_config_preserves_existing_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let existing = serde_json::json!({
+            "someOtherField": "preserved",
+            "gateway": {
+                "existingGatewayField": 42
+            }
+        });
+        std::fs::write(
+            dir.path().join("openclaw.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        apply_gateway_config(dir.path(), "loopback", 19999).unwrap();
+
+        let doc = read_config_json(dir.path());
+        assert_eq!(doc["someOtherField"], "preserved");
+        assert_eq!(doc["gateway"]["existingGatewayField"], 42);
+        assert_eq!(doc["gateway"]["mode"], "local");
+        assert_eq!(doc["gateway"]["bind"], "loopback");
+        assert_eq!(
+            doc["gateway"]["controlUi"]["allowedOrigins"],
+            serde_json::json!(["http://localhost:19999"])
+        );
+        assert_eq!(
+            doc["gateway"]["controlUi"]["dangerouslyDisableDeviceAuth"],
+            true
+        );
+    }
+
+    #[test]
+    fn test_apply_gateway_config_overwrites_existing_gateway_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let existing = serde_json::json!({
+            "gateway": {
+                "mode": "remote",
+                "bind": "lan",
+                "controlUi": {
+                    "allowedOrigins": ["http://old.example.com"],
+                    "dangerouslyDisableDeviceAuth": false
+                }
+            }
+        });
+        std::fs::write(
+            dir.path().join("openclaw.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        apply_gateway_config(dir.path(), "loopback", 18789).unwrap();
+
+        let doc = read_config_json(dir.path());
+        assert_eq!(doc["gateway"]["mode"], "local");
+        assert_eq!(doc["gateway"]["bind"], "loopback");
+        assert_eq!(
+            doc["gateway"]["controlUi"]["allowedOrigins"],
+            serde_json::json!(["http://localhost:18789"])
+        );
+        assert_eq!(
+            doc["gateway"]["controlUi"]["dangerouslyDisableDeviceAuth"],
+            true
+        );
+    }
+
+    #[test]
+    fn test_apply_gateway_config_handles_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("openclaw.json"), "").unwrap();
+
+        apply_gateway_config(dir.path(), "lan", 18789).unwrap();
+
+        let doc = read_config_json(dir.path());
+        assert_eq!(doc["gateway"]["mode"], "local");
+        assert_eq!(doc["gateway"]["bind"], "lan");
+    }
+
+    #[test]
+    fn test_apply_gateway_config_handles_non_object_gateway() {
+        let dir = tempfile::tempdir().unwrap();
+        let existing = serde_json::json!({
+            "gateway": "not-an-object"
+        });
+        std::fs::write(
+            dir.path().join("openclaw.json"),
+            serde_json::to_string_pretty(&existing).unwrap(),
+        )
+        .unwrap();
+
+        apply_gateway_config(dir.path(), "lan", 18789).unwrap();
+
+        let doc = read_config_json(dir.path());
+        assert_eq!(doc["gateway"]["mode"], "local");
+        assert_eq!(doc["gateway"]["bind"], "lan");
+    }
 }
