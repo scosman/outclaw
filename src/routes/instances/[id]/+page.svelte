@@ -517,6 +517,17 @@
 					<CopyButton text={getWorkspacePath()} />
 				</div>
 
+				<!-- Instance ID -->
+				<div
+					class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3"
+				>
+					<div>
+						<div class="text-xs font-medium uppercase tracking-wide text-zinc-500">Instance ID</div>
+						<div class="mt-1 font-mono text-sm text-zinc-300">{instance.id}</div>
+					</div>
+					<CopyButton text={instance.id} />
+				</div>
+
 				<!-- Container ID -->
 				<div
 					class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3"
