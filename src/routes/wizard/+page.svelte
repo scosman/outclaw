@@ -11,7 +11,7 @@
 	import StatusDot from '$lib/components/StatusDot.svelte';
 	import { PROVIDERS, getProviderById, getDefaultProvider } from '$lib/config/providers';
 	import type { InstanceWithStatus } from '$lib/types/instance';
-	import { getGatewayUrl, formatInstanceState } from '$lib/types/instance';
+	import { formatInstanceState } from '$lib/types/instance';
 	import CrabLoading from '$lib/components/CrabLoading.svelte';
 
 	let isLoading = $state(true);
@@ -67,6 +67,8 @@
 		wizardStore.reset();
 		wizardStore.initialize().then(() => {
 			isLoading = false;
+			// DEV: skip to specific step for UI work
+			// wizardStore.goToStep('complete');
 		});
 
 		// Cleanup on unmount
@@ -168,18 +170,6 @@
 			});
 		}
 	});
-
-	// Open gateway in browser
-	async function openGateway() {
-		if (!wizardStore.createdInstanceConfig) return;
-
-		const url = getGatewayUrl(wizardStore.createdInstanceConfig);
-		try {
-			await invoke('open_in_browser', { url });
-		} catch (e) {
-			console.error('Failed to open browser:', e);
-		}
-	}
 
 	// Go to dashboard
 	function goToDashboard() {
@@ -580,7 +570,7 @@
 										Connect Provider
 									{/if}
 								</button>
-								{#if isConnecting || true}
+								{#if isConnecting}
 									<CrabLoading loading={true} />
 								{/if}
 							</div>
@@ -899,83 +889,46 @@
 			{/if}
 		{:else if wizardStore.currentStep === 'complete'}
 			<!-- Step 7: Completion Screen -->
-			<div class="mx-auto w-full max-w-2xl px-6 py-8">
-				<div class="space-y-8">
+			<div class="mx-auto flex w-full max-w-2xl flex-1 items-center px-6 py-8">
+				<div class="w-full space-y-8">
 					<!-- Success Message -->
 					<div class="text-center">
-						<h2 class="mb-2 text-xl font-semibold text-zinc-100">Setup Complete!</h2>
-						<p class="text-sm text-zinc-400">Your OpenClaw instance is ready to use</p>
+						<h2 class="mb-2 text-xl font-semibold text-zinc-100">Setup Complete</h2>
+						<p class="mt-4 text-base text-zinc-300">
+							You can now message OpenClaw and it should respond!
+						</p>
+						{#if whatsAppConnected}
+							<p class="mt-3 text-sm text-zinc-400">
+								For WhatsApp, message the &ldquo;me&rdquo; contact to talk to OpenClaw.
+							</p>
+						{/if}
 					</div>
 
-					<!-- Instance Summary Card -->
+					<!-- Instance Status (subdued) -->
 					{#if wizardStore.createdInstanceConfig}
-						<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-							<h3 class="mb-4 text-sm font-medium text-zinc-300">Instance Summary</h3>
-							<div class="space-y-3">
-								<div class="flex items-center justify-between">
-									<span class="text-sm text-zinc-500">Name</span>
-									<span class="text-sm font-medium text-zinc-100"
-										>{wizardStore.createdInstanceConfig.name}</span
-									>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="text-sm text-zinc-500">Version</span>
-									<span class="text-sm text-zinc-100"
-										>{wizardStore.createdInstanceConfig.openclaw_version}</span
-									>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="text-sm text-zinc-500">Status</span>
-									<div class="flex items-center gap-2">
-										<StatusDot state={createdInstance?.status?.state || 'running'} size="sm" />
-										<span class="text-sm text-zinc-100"
-											>{createdInstance
-												? formatInstanceState(createdInstance.status.state)
-												: 'Running'}</span
-										>
-									</div>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="text-sm text-zinc-500">Gateway URL</span>
-									<span class="font-mono text-sm text-emerald-400"
-										>{getGatewayUrl(wizardStore.createdInstanceConfig)}</span
+						<div class="rounded-lg border border-zinc-800/60 bg-zinc-900/30 px-4 py-3">
+							<div class="flex items-center justify-between">
+								<span class="text-sm text-zinc-500">{wizardStore.createdInstanceConfig.name}</span>
+								<div class="flex items-center gap-2">
+									<StatusDot state={createdInstance?.status?.state || 'running'} size="sm" />
+									<span class="text-sm text-zinc-500"
+										>{createdInstance
+											? formatInstanceState(createdInstance.status.state)
+											: 'Running'}</span
 									>
 								</div>
 							</div>
 						</div>
 					{/if}
 
-					<!-- Action Buttons -->
-					<div class="flex flex-col gap-3">
+					<!-- Action Button -->
+					<div class="text-center">
 						<button
 							type="button"
-							class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-							onclick={openGateway}
-						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-								/>
-							</svg>
-							Open Gateway
-						</button>
-						<button
-							type="button"
-							class="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+							class="text-sm text-zinc-400 underline decoration-zinc-600 underline-offset-4 transition-colors hover:text-zinc-200"
 							onclick={goToDashboard}
 						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-								/>
-							</svg>
-							Go to Dashboard
+							Return to Dashboard
 						</button>
 					</div>
 				</div>
@@ -984,31 +937,15 @@
 	</div>
 
 	<!-- Wizard Footer -->
-	<footer
-		class="flex h-16 flex-shrink-0 items-center justify-end gap-3 border-t border-zinc-800 bg-zinc-900 px-6"
-	>
-		{#if error}
-			<span class="mr-auto text-sm text-red-400">{error}</span>
-		{/if}
+	{#if error || (wizardStore.currentStep === 'build' && buildComplete) || wizardStore.currentStep === 'provider' || wizardStore.currentStep === 'channel' || ['install-type', 'config'].includes(wizardStore.currentStep)}
+		<footer
+			class="flex h-16 flex-shrink-0 items-center justify-end gap-3 border-t border-zinc-800 bg-zinc-900 px-6"
+		>
+			{#if error}
+				<span class="mr-auto text-sm text-red-400">{error}</span>
+			{/if}
 
-		{#if wizardStore.currentStep === 'build' && buildComplete && !buildError}
-			<button
-				type="button"
-				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-				onclick={handleNext}
-			>
-				Continue
-			</button>
-		{:else if wizardStore.currentStep === 'build' && buildComplete && buildError}
-			<button
-				type="button"
-				class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
-				onclick={() => wizardStore.goToStep('config')}
-			>
-				Back to Settings
-			</button>
-		{:else if wizardStore.currentStep === 'provider'}
-			{#if connectionSuccess}
+			{#if wizardStore.currentStep === 'build' && buildComplete && !buildError}
 				<button
 					type="button"
 					class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
@@ -1016,53 +953,72 @@
 				>
 					Continue
 				</button>
-			{:else}
+			{:else if wizardStore.currentStep === 'build' && buildComplete && buildError}
 				<button
 					type="button"
-					class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
-					disabled
-					title="Connect a provider first"
+					class="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+					onclick={() => wizardStore.goToStep('config')}
 				>
-					Continue
+					Back to Settings
 				</button>
-			{/if}
-		{:else if wizardStore.currentStep === 'channel'}
-			{#if hasConnectedChannel}
-				<button
-					type="button"
-					class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-					onclick={handleNext}
-				>
-					Done
-				</button>
-			{:else}
-				<button
-					type="button"
-					class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
-					disabled
-					title="Connect a channel first"
-				>
-					Done
-				</button>
-			{/if}
-		{:else if ['install-type', 'config'].includes(wizardStore.currentStep)}
-			<button
-				type="button"
-				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-				disabled={isCreating || (wizardStore.currentStep === 'config' && wizardStore.hasFormErrors)}
-				onclick={handleNext}
-			>
-				{#if isCreating}
-					<span class="flex items-center gap-2">
-						<div
-							class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-						></div>
-						Creating...
-					</span>
+			{:else if wizardStore.currentStep === 'provider'}
+				{#if connectionSuccess}
+					<button
+						type="button"
+						class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+						onclick={handleNext}
+					>
+						Continue
+					</button>
 				{:else}
-					Next
+					<button
+						type="button"
+						class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
+						disabled
+						title="Connect a provider first"
+					>
+						Continue
+					</button>
 				{/if}
-			</button>
-		{/if}
-	</footer>
+			{:else if wizardStore.currentStep === 'channel'}
+				{#if hasConnectedChannel}
+					<button
+						type="button"
+						class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+						onclick={handleNext}
+					>
+						Done
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400"
+						disabled
+						title="Connect a channel first"
+					>
+						Done
+					</button>
+				{/if}
+			{:else if ['install-type', 'config'].includes(wizardStore.currentStep)}
+				<button
+					type="button"
+					class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={isCreating ||
+						(wizardStore.currentStep === 'config' && wizardStore.hasFormErrors)}
+					onclick={handleNext}
+				>
+					{#if isCreating}
+						<span class="flex items-center gap-2">
+							<div
+								class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+							></div>
+							Creating...
+						</span>
+					{:else}
+						Next
+					{/if}
+				</button>
+			{/if}
+		</footer>
+	{/if}
 </div>
