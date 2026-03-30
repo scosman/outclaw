@@ -194,11 +194,11 @@
 
 	// Get CLI commands for provider/channel setup
 	function getProviderSetupCommand(): string {
-		return `cd ~/.outclaw/docker-containers/${instance?.container_id} && docker compose exec gateway openclaw onboard`;
+		return `docker exec -it outclaw-${instance?.container_id}-gateway openclaw onboard`;
 	}
 
 	function getChannelSetupCommand(): string {
-		return `cd ~/.outclaw/docker-containers/${instance?.container_id} && docker compose exec gateway openclaw channels add --channel <channel-name>`;
+		return `docker exec -it outclaw-${instance?.container_id}-gateway openclaw channels add --channel <channel-name>`;
 	}
 
 	// Rebuild action
@@ -393,17 +393,6 @@
 			<SectionHeader title="Details" />
 
 			<div class="space-y-3">
-				<!-- Gateway URL -->
-				<div
-					class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3"
-				>
-					<div>
-						<div class="text-xs font-medium uppercase tracking-wide text-zinc-500">Gateway URL</div>
-						<div class="mt-1 font-mono text-sm text-zinc-300">{getGatewayUrl(instance)}</div>
-					</div>
-					<CopyButton text={getGatewayUrl(instance)} />
-				</div>
-
 				<!-- Gateway Token -->
 				<div
 					class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3"
