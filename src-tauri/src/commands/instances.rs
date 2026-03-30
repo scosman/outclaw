@@ -977,20 +977,27 @@ pub async fn build_instance(
         crate::instance::GatewayBind::Lan => "lan",
     };
 
-    // ========== Stage 9: Stop, write config, restart gateway ==========
+    // ========== Stage 9: Write gateway config (after gateway initializes) ==========
     emit_progress(
-        "restarting-gateway",
-        "Restarting gateway to apply changes...",
+        "configuring-gateway",
+        "Waiting for gateway to initialize...",
         false,
         None,
     );
+
+    let container_name = format!("outclaw-{}-gateway", config.container_id);
+    if let Err(e) = wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await {
+        let err_msg = emit_error("configuring-gateway", &e.to_string());
+        state.build_tracker.unregister(&id).await;
+        return Err(err_msg);
+    }
 
     if let Err(e) = state
         .docker_cli
         .compose_stop(&compose_path, &project_name)
         .await
     {
-        let err_msg = emit_error("restarting-gateway", &e.to_string());
+        let err_msg = emit_error("configuring-gateway", &e.to_string());
         state.build_tracker.unregister(&id).await;
         return Err(err_msg);
     }
@@ -1010,24 +1017,17 @@ pub async fn build_instance(
         return Err(err_msg);
     }
 
-    emit_progress(
-        "configuring-gateway",
-        "Gateway configuration written",
-        false,
-        None,
-    );
-
     if let Err(e) = state
         .docker_cli
         .compose_up(&compose_path, &project_name)
         .await
     {
-        let err_msg = emit_error("restarting-gateway", &e.to_string());
+        let err_msg = emit_error("configuring-gateway", &e.to_string());
         state.build_tracker.unregister(&id).await;
         return Err(err_msg);
     }
 
-    emit_progress("restarting-gateway", "Gateway restarted", false, None);
+    emit_progress("configuring-gateway", "Gateway configured", false, None);
 
     // ========== Done! ==========
     emit_progress(
