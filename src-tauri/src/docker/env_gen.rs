@@ -2,6 +2,7 @@ use tracing::debug;
 
 use crate::error::Result;
 use crate::instance::InstanceConfig;
+use crate::security::sanitize_env_value;
 
 /// Generate .env file content for an instance
 pub fn generate_env(config: &InstanceConfig) -> Result<String> {
@@ -28,27 +29,28 @@ pub fn generate_env(config: &InstanceConfig) -> Result<String> {
         lines.push("OPENCLAW_INSTALL_BROWSER=true".to_string());
     }
 
-    // Additional packages
+    // Additional packages (defense-in-depth: sanitize before writing to .env)
     if !config.apt_packages.is_empty() {
-        lines.push(format!(
-            "OPENCLAW_DOCKER_APT_PACKAGES={}",
-            config.apt_packages
-        ));
+        let val = sanitize_env_value(&config.apt_packages)?;
+        lines.push(format!("OPENCLAW_DOCKER_APT_PACKAGES={}", val));
     }
 
     // Extensions
     if !config.extensions.is_empty() {
-        lines.push(format!("OPENCLAW_EXTENSIONS={}", config.extensions));
+        let val = sanitize_env_value(&config.extensions)?;
+        lines.push(format!("OPENCLAW_EXTENSIONS={}", val));
     }
 
     // Home volume
     if !config.home_volume.is_empty() {
-        lines.push(format!("OPENCLAW_HOME_VOLUME={}", config.home_volume));
+        let val = sanitize_env_value(&config.home_volume)?;
+        lines.push(format!("OPENCLAW_HOME_VOLUME={}", val));
     }
 
     // Extra mounts
     if !config.extra_mounts.is_empty() {
-        lines.push(format!("OPENCLAW_EXTRA_MOUNTS={}", config.extra_mounts));
+        let val = sanitize_env_value(&config.extra_mounts)?;
+        lines.push(format!("OPENCLAW_EXTRA_MOUNTS={}", val));
     }
 
     // Insecure WebSocket
@@ -93,6 +95,7 @@ mod tests {
             home_volume: "".to_string(),
             extra_mounts: "".to_string(),
             allow_insecure_ws: false,
+            security_policy: Default::default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

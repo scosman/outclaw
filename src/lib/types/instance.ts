@@ -1,5 +1,7 @@
 // TypeScript types matching Rust models in instance/models.rs
 
+import type { SecurityPolicy } from './security';
+
 export type GatewayBind = 'loopback' | 'lan';
 
 export type InstanceState = 'building' | 'running' | 'stopped' | 'error' | 'docker-not-running';
@@ -22,6 +24,7 @@ export interface InstanceConfig {
 	home_volume: string;
 	extra_mounts: string;
 	allow_insecure_ws: boolean;
+	security_policy: SecurityPolicy;
 	created_at: string;
 	updated_at: string;
 }
@@ -39,6 +42,7 @@ export interface InstanceSettings {
 	home_volume: string;
 	extra_mounts: string;
 	allow_insecure_ws: boolean;
+	security_policy?: SecurityPolicy;
 }
 
 export interface InstanceStatus {

@@ -9,6 +9,7 @@ use crate::error::{OutClawError, Result};
 use crate::instance::{
     allocate_ports, generate_name, validate_port, InstanceConfig, InstanceSettings,
 };
+use crate::security::sanitize_instance_settings;
 
 /// Manages instance CRUD operations and directory structure
 pub struct InstanceManager {
@@ -134,6 +135,17 @@ impl InstanceManager {
             _ => allocate_ports(&existing)?,
         };
 
+        // Sanitize user-provided input fields
+        let (sanitized_name, apt_packages, extensions, home_volume, extra_mounts) =
+            sanitize_instance_settings(
+                &name,
+                &settings.apt_packages,
+                &settings.extensions,
+                &settings.home_volume,
+                &settings.extra_mounts,
+            )?;
+        let name = if sanitized_name.is_empty() { name } else { sanitized_name };
+
         // Generate IDs
         let instance_id = generate_id("ec_");
         let container_id = generate_id("ct_");
@@ -154,11 +166,12 @@ impl InstanceManager {
             gateway_token,
             timezone: settings.timezone,
             install_browser: settings.install_browser,
-            apt_packages: settings.apt_packages,
-            extensions: settings.extensions,
-            home_volume: settings.home_volume,
-            extra_mounts: settings.extra_mounts,
+            apt_packages,
+            extensions,
+            home_volume,
+            extra_mounts,
             allow_insecure_ws: settings.allow_insecure_ws,
+            security_policy: settings.security_policy,
             created_at: now,
             updated_at: now,
         };
@@ -211,16 +224,27 @@ impl InstanceManager {
             config.bridge_port = bp;
         }
 
+        // Sanitize user-provided input fields
+        let (_name, apt_packages, extensions, home_volume, extra_mounts) =
+            sanitize_instance_settings(
+                "",
+                &settings.apt_packages,
+                &settings.extensions,
+                &settings.home_volume,
+                &settings.extra_mounts,
+            )?;
+
         // Update other settings
         config.openclaw_version = settings.openclaw_version;
         config.gateway_bind = settings.gateway_bind;
         config.timezone = settings.timezone;
         config.install_browser = settings.install_browser;
-        config.apt_packages = settings.apt_packages;
-        config.extensions = settings.extensions;
-        config.home_volume = settings.home_volume;
-        config.extra_mounts = settings.extra_mounts;
+        config.apt_packages = apt_packages;
+        config.extensions = extensions;
+        config.home_volume = home_volume;
+        config.extra_mounts = extra_mounts;
         config.allow_insecure_ws = settings.allow_insecure_ws;
+        config.security_policy = settings.security_policy;
         config.updated_at = Utc::now();
 
         // Write updated config

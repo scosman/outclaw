@@ -12,6 +12,7 @@ use crate::instance::{
     InstanceConfig, InstanceManager, InstanceSettings, InstanceState, InstanceStatus,
     InstanceWithStatus, Release,
 };
+use crate::security::{AuditAction, AuditLogger, RateLimiter};
 
 fn apply_gateway_config(
     config_dir: &std::path::Path,
@@ -154,6 +155,8 @@ pub struct AppState {
     pub instance_manager: Arc<InstanceManager>,
     pub docker_cli: Arc<DockerCli>,
     pub build_tracker: Arc<BuildTracker>,
+    pub audit_logger: Arc<AuditLogger>,
+    pub rate_limiter: Arc<RateLimiter>,
 }
 
 impl Default for AppState {
@@ -164,12 +167,15 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let instance_manager = InstanceManager::new().expect("Failed to create InstanceManager");
+        let audit_logger = AuditLogger::new(instance_manager.base_dir());
+
         Self {
-            instance_manager: Arc::new(
-                InstanceManager::new().expect("Failed to create InstanceManager"),
-            ),
+            instance_manager: Arc::new(instance_manager),
             docker_cli: Arc::new(DockerCli::new()),
             build_tracker: Arc::new(BuildTracker::new()),
+            audit_logger: Arc::new(audit_logger),
+            rate_limiter: Arc::new(RateLimiter::new()),
         }
     }
 }
@@ -256,12 +262,20 @@ pub async fn create_instance(
     settings: InstanceSettings,
     state: State<'_, AppState>,
 ) -> Result<InstanceConfig, String> {
+    state.rate_limiter.check("create_instance").map_err(|e| e.to_string())?;
     info!("Creating instance with settings: {:?}", settings);
 
-    let config = state
-        .instance_manager
-        .create(settings)
-        .map_err(|e| e.to_string())?;
+    let config = match state.instance_manager.create(settings) {
+        Ok(c) => c,
+        Err(e) => {
+            state.audit_logger.log_denied(
+                AuditAction::InstanceCreated,
+                None,
+                Some(serde_json::json!({"error": e.to_string()})),
+            );
+            return Err(e.to_string());
+        }
+    };
 
     // Generate Docker files
     let docker_dir = config.docker_path();
@@ -270,10 +284,24 @@ pub async fn create_instance(
     let compose = generate_compose(&config).map_err(|e| e.to_string())?;
     std::fs::write(docker_dir.join("docker-compose.yml"), compose).map_err(|e| e.to_string())?;
 
+    // Generate seccomp profile if using strict mode
+    if config.security_policy.sandbox.seccomp_profile == crate::security::SeccompProfile::Strict {
+        crate::security::seccomp::generate_seccomp_profile(
+            &config.security_policy.sandbox,
+            &docker_dir.join("seccomp-profile.json"),
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
     // Generate .env
     let env = generate_env(&config).map_err(|e| e.to_string())?;
     std::fs::write(docker_dir.join(".env"), env).map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(
+        AuditAction::InstanceCreated,
+        Some(config.id.clone()),
+        Some(serde_json::json!({"name": config.name})),
+    );
     info!("Created instance {} ({})", config.name, config.id);
     Ok(config)
 }
@@ -285,12 +313,20 @@ pub async fn update_instance(
     settings: InstanceSettings,
     state: State<'_, AppState>,
 ) -> Result<InstanceConfig, String> {
+    state.rate_limiter.check("update_instance").map_err(|e| e.to_string())?;
     info!("Updating instance {}", id);
 
-    let config = state
-        .instance_manager
-        .update(&id, settings)
-        .map_err(|e| e.to_string())?;
+    let config = match state.instance_manager.update(&id, settings) {
+        Ok(c) => c,
+        Err(e) => {
+            state.audit_logger.log_denied(
+                AuditAction::ConfigChanged,
+                Some(id.clone()),
+                Some(serde_json::json!({"error": e.to_string()})),
+            );
+            return Err(e.to_string());
+        }
+    };
 
     // Regenerate Docker files
     let docker_dir = config.docker_path();
@@ -298,9 +334,23 @@ pub async fn update_instance(
     let compose = generate_compose(&config).map_err(|e| e.to_string())?;
     std::fs::write(docker_dir.join("docker-compose.yml"), compose).map_err(|e| e.to_string())?;
 
+    // Regenerate seccomp profile if using strict mode
+    if config.security_policy.sandbox.seccomp_profile == crate::security::SeccompProfile::Strict {
+        crate::security::seccomp::generate_seccomp_profile(
+            &config.security_policy.sandbox,
+            &docker_dir.join("seccomp-profile.json"),
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
     let env = generate_env(&config).map_err(|e| e.to_string())?;
     std::fs::write(docker_dir.join(".env"), env).map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(
+        AuditAction::ConfigChanged,
+        Some(id.clone()),
+        None,
+    );
     info!("Updated instance {}", id);
     Ok(config)
 }
@@ -325,6 +375,7 @@ pub async fn rename_instance(
 /// Delete an instance
 #[tauri::command]
 pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.rate_limiter.check("delete_instance").map_err(|e| e.to_string())?;
     info!("Deleting instance {}", id);
 
     // Get config before deletion to clean up Docker resources
@@ -366,6 +417,7 @@ pub async fn delete_instance(id: String, state: State<'_, AppState>) -> Result<(
         .delete(&id)
         .map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(AuditAction::InstanceDeleted, Some(id.clone()), None);
     info!("Deleted instance {}", id);
     Ok(())
 }
@@ -377,6 +429,7 @@ pub async fn start_instance(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    state.rate_limiter.check("start_instance").map_err(|e| e.to_string())?;
     info!("Starting instance {}", id);
 
     let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
@@ -391,6 +444,7 @@ pub async fn start_instance(
         .await
         .map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(AuditAction::InstanceStarted, Some(id.clone()), None);
     info!("Started instance {}", id);
 
     // Emit updated status immediately
@@ -406,6 +460,7 @@ pub async fn stop_instance(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    state.rate_limiter.check("stop_instance").map_err(|e| e.to_string())?;
     info!("Stopping instance {}", id);
 
     let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
@@ -420,6 +475,7 @@ pub async fn stop_instance(
         .await
         .map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(AuditAction::InstanceStopped, Some(id.clone()), None);
     info!("Stopped instance {}", id);
 
     // Emit updated status immediately
@@ -435,6 +491,7 @@ pub async fn restart_instance(
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    state.rate_limiter.check("restart_instance").map_err(|e| e.to_string())?;
     info!("Restarting instance {}", id);
 
     let config = state.instance_manager.get(&id).map_err(|e| e.to_string())?;
@@ -455,6 +512,7 @@ pub async fn restart_instance(
         .await
         .map_err(|e| e.to_string())?;
 
+    state.audit_logger.log_success(AuditAction::InstanceRestarted, Some(id.clone()), None);
     info!("Restarted instance {}", id);
 
     // Emit updated status immediately
