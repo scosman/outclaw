@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { InstanceSettings, Release, InstanceConfig } from '$lib/types/instance';
+import { defaultSecurityPolicy } from '$lib/types/security';
 
 // Wizard steps
 export type WizardStep = 'install-type' | 'config' | 'build' | 'provider' | 'channel' | 'complete';
@@ -52,7 +53,8 @@ let settings = $state<InstanceSettings>({
 	extensions: '',
 	home_volume: '',
 	extra_mounts: '',
-	allow_insecure_ws: false
+	allow_insecure_ws: false,
+	security_policy: defaultSecurityPolicy()
 });
 let formErrors = $state<FormErrors>({});
 let buildState = $state<BuildState | null>(null);
@@ -103,7 +105,8 @@ function reset() {
 		extensions: '',
 		home_volume: '',
 		extra_mounts: '',
-		allow_insecure_ws: false
+		allow_insecure_ws: false,
+		security_policy: defaultSecurityPolicy()
 	};
 	formErrors = {};
 	buildState = null;
@@ -228,7 +231,8 @@ async function createInstance(): Promise<string | null> {
 			extensions: settings.extensions || '',
 			home_volume: settings.home_volume || '',
 			extra_mounts: settings.extra_mounts || '',
-			allow_insecure_ws: settings.allow_insecure_ws
+			allow_insecure_ws: settings.allow_insecure_ws,
+			security_policy: settings.security_policy ?? defaultSecurityPolicy()
 		};
 
 		const config = await invoke<InstanceConfig>('create_instance', { settings: finalSettings });

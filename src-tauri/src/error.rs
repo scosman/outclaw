@@ -51,6 +51,18 @@ pub enum OutClawError {
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
 
+    #[error("Input validation failed: {0}")]
+    InputValidation(String),
+
+    #[error("SSRF validation failed: blocked address {0}")]
+    SsrfBlocked(String),
+
+    #[error("Security policy violation: {0}")]
+    SecurityPolicyViolation(String),
+
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
+
     #[error("{0}")]
     Other(String),
 }

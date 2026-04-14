@@ -4,6 +4,7 @@ mod error;
 mod github;
 mod instance;
 mod poller;
+mod security;
 
 use std::sync::Arc;
 
@@ -71,6 +72,9 @@ pub fn run() {
             commands::system::get_system_timezone,
             commands::system::generate_instance_name,
             commands::system::open_in_browser,
+            commands::security::get_audit_log,
+            commands::security::check_security_approval,
+            commands::security::approve_security_change,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

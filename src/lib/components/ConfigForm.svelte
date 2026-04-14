@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { wizardStore } from '$lib/stores/wizard.svelte';
 	import type { GatewayBind, InstanceSettings } from '$lib/types/instance';
+	import type { SecurityPolicy } from '$lib/types/security';
+	import { defaultSecurityPolicy } from '$lib/types/security';
+	import SecuritySettings from './SecuritySettings.svelte';
 
 	interface Props {
 		mode?: 'create' | 'edit';
@@ -28,6 +31,7 @@
 	});
 
 	let showAdvanced = $state(false);
+	let showSecurity = $state(false);
 	let nameTouched = $state(false);
 	let gatewayPortTouched = $state(false);
 	let bridgePortTouched = $state(false);
@@ -484,6 +488,34 @@
 						></span>
 					</button>
 				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Security Settings Section -->
+	<div class="border-t border-zinc-700 pt-4">
+		<button
+			type="button"
+			class="flex w-full items-center justify-between text-sm font-medium text-zinc-300 hover:text-zinc-100"
+			onclick={() => (showSecurity = !showSecurity)}
+		>
+			<span>Security Settings</span>
+			<svg
+				class="h-5 w-5 transition-transform {showSecurity ? 'rotate-180' : ''}"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+			</svg>
+		</button>
+
+		{#if showSecurity}
+			<div class="mt-4">
+				<SecuritySettings
+					policy={localSettings.security_policy ?? defaultSecurityPolicy()}
+					onChange={(policy) => updateLocalSettings({ security_policy: policy })}
+				/>
 			</div>
 		{/if}
 	</div>

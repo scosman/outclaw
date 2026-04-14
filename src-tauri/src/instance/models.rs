@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::security::SecurityPolicy;
+
 /// Persisted instance configuration stored in instance.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstanceConfig {
@@ -34,6 +36,9 @@ pub struct InstanceConfig {
     pub extra_mounts: String,
     /// Allow insecure WebSocket
     pub allow_insecure_ws: bool,
+    /// Security policy (sandbox hardening, network controls)
+    #[serde(default)]
+    pub security_policy: SecurityPolicy,
     /// Creation timestamp
     pub created_at: DateTime<Utc>,
     /// Last update timestamp
@@ -148,6 +153,9 @@ pub struct InstanceSettings {
     /// Allow insecure WebSocket
     #[serde(default)]
     pub allow_insecure_ws: bool,
+    /// Security policy (sandbox hardening, network controls)
+    #[serde(default)]
+    pub security_policy: SecurityPolicy,
 }
 
 fn default_version() -> String {
@@ -277,6 +285,7 @@ mod tests {
             home_volume: "".to_string(),
             extra_mounts: "".to_string(),
             allow_insecure_ws: false,
+            security_policy: Default::default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -342,6 +351,7 @@ mod tests {
             home_volume: "".to_string(),
             extra_mounts: "".to_string(),
             allow_insecure_ws: false,
+            security_policy: Default::default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

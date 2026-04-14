@@ -5,9 +5,13 @@ use tracing::debug;
 
 use crate::error::Result;
 use crate::instance::{GatewayBind, InstanceConfig};
+use crate::security::{validate_config_lifecycle, NetworkPreset, SeccompProfile};
 
 /// Generate docker-compose.yml content for an instance
 pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
+    // Pre-flight validation before generating Docker config
+    validate_config_lifecycle(config)?;
+
     let project_name = format!("outclaw-{}", config.container_id);
     let gateway_service = format!("{}-gateway", project_name);
     let cli_service = format!("{}-cli", project_name);
@@ -28,6 +32,67 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
     // Get paths
     let config_path = config.config_path();
     let workspace_path = config.workspace_path();
+
+    // Build security options from policy
+    let security = &config.security_policy;
+    let cap_drop = if security.sandbox.drop_all_capabilities {
+        Some(vec!["ALL".to_string()])
+    } else {
+        None
+    };
+    let cap_add = if !security.sandbox.added_capabilities.is_empty() {
+        Some(security.sandbox.added_capabilities.clone())
+    } else {
+        None
+    };
+
+    let mut security_opts = Vec::new();
+    if security.sandbox.no_new_privileges {
+        security_opts.push("no-new-privileges:true".to_string());
+    }
+    match &security.sandbox.seccomp_profile {
+        SeccompProfile::Strict => {
+            // Path to the seccomp profile JSON placed alongside docker-compose.yml
+            security_opts.push("seccomp=seccomp-profile.json".to_string());
+        }
+        SeccompProfile::Unconfined => {
+            security_opts.push("seccomp=unconfined".to_string());
+        }
+        SeccompProfile::Default => {
+            // Docker's default seccomp is applied automatically
+        }
+    }
+    let security_opt = if security_opts.is_empty() {
+        None
+    } else {
+        Some(security_opts)
+    };
+
+    let pids_limit = security.sandbox.pids_limit;
+
+    // Resource limits via deploy config
+    let deploy = {
+        let has_memory = security.sandbox.memory_limit.is_some();
+        let has_cpu = security.sandbox.cpu_limit.is_some();
+        if has_memory || has_cpu {
+            Some(DeployConfig {
+                resources: Some(ResourceConfig {
+                    limits: Some(ResourceLimits {
+                        memory: security.sandbox.memory_limit.clone(),
+                        cpus: security.sandbox.cpu_limit.map(|c| format!("{:.1}", c)),
+                    }),
+                }),
+            })
+        } else {
+            None
+        }
+    };
+
+    // Network mode from network policy
+    let network_mode = match security.network.preset {
+        NetworkPreset::Strict => Some("none".to_string()),
+        _ => None,
+    };
 
     let compose = DockerCompose {
         version: "3.8",
@@ -56,6 +121,12 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                         format!("OPENCLAW_TZ={}", config.timezone),
                     ],
                     labels: Some(labels.clone()),
+                    cap_drop: cap_drop.clone(),
+                    cap_add: cap_add.clone(),
+                    security_opt: security_opt.clone(),
+                    pids_limit,
+                    network_mode: network_mode.clone(),
+                    deploy: deploy.clone(),
                 },
             );
 
@@ -78,6 +149,12 @@ pub fn generate_compose(config: &InstanceConfig) -> Result<String> {
                         format!("OPENCLAW_TZ={}", config.timezone),
                     ],
                     labels: Some(labels),
+                    cap_drop,
+                    cap_add,
+                    security_opt,
+                    pids_limit,
+                    network_mode,
+                    deploy,
                 },
             );
 
@@ -112,6 +189,38 @@ struct Service {
     environment: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     labels: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cap_drop: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cap_add: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    security_opt: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pids_limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    network_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    deploy: Option<DeployConfig>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+struct DeployConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resources: Option<ResourceConfig>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+struct ResourceConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    limits: Option<ResourceLimits>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+struct ResourceLimits {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    memory: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpus: Option<String>,
 }
 
 #[cfg(test)]
@@ -136,6 +245,7 @@ mod tests {
             home_volume: "".to_string(),
             extra_mounts: "".to_string(),
             allow_insecure_ws: false,
+            security_policy: Default::default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -166,5 +276,40 @@ mod tests {
         // Should not have 127.0.0.1 prefix for gateway port in LAN mode
         assert!(compose.contains("18789:18789"));
         assert!(!compose.contains("127.0.0.1:18789:18789"));
+    }
+
+    #[test]
+    fn test_compose_default_security_drops_caps() {
+        let config = create_test_config();
+        let compose = generate_compose(&config).unwrap();
+
+        // Default policy should drop all capabilities
+        assert!(compose.contains("cap_drop"));
+        assert!(compose.contains("ALL"));
+        // Default policy should set no-new-privileges
+        assert!(compose.contains("no-new-privileges:true"));
+        // Default policy should set pids_limit
+        assert!(compose.contains("pids_limit: 256"));
+    }
+
+    #[test]
+    fn test_compose_strict_network() {
+        let mut config = create_test_config();
+        config.security_policy.network.preset = crate::security::NetworkPreset::Strict;
+
+        let compose = generate_compose(&config).unwrap();
+        assert!(compose.contains("network_mode"));
+        assert!(compose.contains("none"));
+    }
+
+    #[test]
+    fn test_compose_resource_limits() {
+        let mut config = create_test_config();
+        config.security_policy.sandbox.memory_limit = Some("2g".to_string());
+        config.security_policy.sandbox.cpu_limit = Some(2.0);
+
+        let compose = generate_compose(&config).unwrap();
+        assert!(compose.contains("memory:") && compose.contains("2g"));
+        assert!(compose.contains("cpus:") && compose.contains("2.0"));
     }
 }
