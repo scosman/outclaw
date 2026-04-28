@@ -463,31 +463,45 @@ pub async fn restart_instance(
     Ok(())
 }
 
+/// Waits for the OpenClaw gateway HTTP server to respond on its health endpoint.
+///
+/// The previous implementation used `docker exec echo ready`, which only confirms
+/// the container process is exec-able — not that the HTTP server has actually bound
+/// to its port. On first run, the gateway stages 11 plugin runtime dependencies
+/// (express, playwright-core, etc.) before its HTTP server initialises, which takes
+/// 10–30 seconds even on fast hardware. Polling with `echo ready` caused the build
+/// flow to proceed before deps were staged, triggering a SIGTERM watchdog loop that
+/// prevented the gateway from ever completing startup.
 async fn wait_for_gateway_ready(
-    docker_cli: &DockerCli,
-    container_name: &str,
+    _docker_cli: &DockerCli,
+    _container_name: &str,
+    gateway_port: u16,
     initial_delay_secs: u64,
     max_attempts: u32,
 ) -> Result<(), String> {
     tokio::time::sleep(std::time::Duration::from_secs(initial_delay_secs)).await;
 
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let health_url = format!("http://127.0.0.1:{}/health", gateway_port);
+
     for i in 0..max_attempts {
-        match docker_cli
-            .docker_exec(container_name, &["echo", "ready"])
-            .await
-        {
-            Ok(_) => return Ok(()),
-            Err(_) => {
+        match client.get(&health_url).send().await {
+            Ok(resp) if resp.status().is_success() => return Ok(()),
+            _ => {
                 if i < max_attempts - 1 {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }
             }
         }
     }
 
     Err(format!(
-        "Gateway did not become ready after {} attempts",
-        max_attempts
+        "Gateway health endpoint {} did not respond after {} attempts",
+        health_url, max_attempts
     ))
 }
 
@@ -526,7 +540,14 @@ pub async fn restart_gateway(
         .await
         .map_err(|e| format!("Failed to start gateway: {}", e))?;
 
-    wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await?;
+    wait_for_gateway_ready(
+        &state.docker_cli,
+        &container_name,
+        config.gateway_port,
+        5,
+        150,
+    )
+    .await?;
 
     emit_instance_status(&instance_id, &app_handle, &state).await;
 
@@ -885,6 +906,28 @@ pub async fn build_instance(
         return Err(e);
     }
 
+    // ========== Stage 5b: Pre-stage plugin runtime deps ==========
+    // The gateway requires 11 plugin deps staged in the config volume before its
+    // HTTP server can start. Running `doctor --fix` here — against the CLI container,
+    // before the gateway process starts — ensures the cache is warm so the gateway
+    // comes up within the health-check window. Non-fatal: if this fails the gateway
+    // will attempt self-staging, but may hit the SIGTERM loop on slow networks.
+    emit_progress("running-onboarding", "Installing plugin dependencies...", false, None);
+
+    if let Err(e) = state
+        .docker_cli
+        .compose_run(
+            &compose_path,
+            &project_name,
+            &format!("{}-cli", project_name),
+            &["doctor", "--fix", "--yes"],
+            None,
+        )
+        .await
+    {
+        warn!("Plugin dep pre-staging warning (non-fatal): {}", e);
+    }
+
     // ========== Stage 6: Run onboarding ==========
     emit_progress(
         "running-onboarding",
@@ -986,7 +1029,15 @@ pub async fn build_instance(
     );
 
     let container_name = format!("outclaw-{}-gateway", config.container_id);
-    if let Err(e) = wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await {
+    if let Err(e) = wait_for_gateway_ready(
+        &state.docker_cli,
+        &container_name,
+        config.gateway_port,
+        5,
+        150,
+    )
+    .await
+    {
         let err_msg = emit_error("configuring-gateway", &e.to_string());
         state.build_tracker.unregister(&id).await;
         return Err(err_msg);
@@ -1252,7 +1303,15 @@ pub async fn connect_whatsapp(
     }
 
     emit_progress("Waiting for gateway to restart...", false, None);
-    if let Err(e) = wait_for_gateway_ready(&state.docker_cli, &container_name, 5, 30).await {
+    if let Err(e) = wait_for_gateway_ready(
+        &state.docker_cli,
+        &container_name,
+        config.gateway_port,
+        5,
+        150,
+    )
+    .await
+    {
         let err_msg = format!("Gateway did not become ready after restart: {}", e);
         emit_progress(&err_msg, true, Some(&err_msg));
         return Err(err_msg);
